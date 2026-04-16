@@ -347,7 +347,7 @@ function buildVisualizer(slug) {
   }
 }
 
-function ArraySnapshotView({ snapshot, mode }) {
+function ArraySnapshotView({ snapshot, mode, onAnchorClick }) {
   const maxValue = Math.max(...snapshot.values)
 
   return (
@@ -365,7 +365,8 @@ function ArraySnapshotView({ snapshot, mode }) {
           <div
             key={`${mode}-${index}-${value}`}
             className={`array-node${inRange ? ' is-in-range' : ''}${isMid ? ' is-mid' : ''}${isFound ? ' is-found' : ''}${isMerged ? ' is-merged' : ''}`}
-            style={mode === 'bars' ? { height: `${Math.max(18, (value / maxValue) * 180)}px` } : undefined}
+            onClick={() => onAnchorClick?.(`index ${index}`)}
+            style={mode === 'bars' ? { height: `${Math.max(18, (value / maxValue) * 180)}px`, cursor: 'help' } : { cursor: 'help' }}
           >
             <span>{value}</span>
             <small>{index}</small>
@@ -376,7 +377,7 @@ function ArraySnapshotView({ snapshot, mode }) {
   )
 }
 
-function GraphSnapshotView({ snapshot }) {
+function GraphSnapshotView({ snapshot, onAnchorClick }) {
   return (
     <div className="graph-visualizer">
       <svg viewBox="0 0 560 300" className="graph-surface" role="img" aria-label="Dijkstra graph">
@@ -412,7 +413,7 @@ function GraphSnapshotView({ snapshot }) {
               <circle
                 r="28"
                 className={`graph-node${isCurrent ? ' is-current' : ''}${isVisited ? ' is-visited' : ''}${isFrontier ? ' is-frontier' : ''}`}
-                onClick={() => handleGetHint(`node ${node}`)}
+                onClick={() => onAnchorClick?.(`node ${node}`)}
                 style={{ cursor: 'help' }}
               />
               {isCurrent && (
@@ -617,9 +618,9 @@ export default function LaboratoryPage() {
 
               <div className="visualizer-frame">
                 {visualizer.mode === 'graph' ? (
-                  <GraphSnapshotView snapshot={currentSnapshot} />
+                  <GraphSnapshotView snapshot={currentSnapshot} onAnchorClick={handleGetHint} />
                 ) : (
-                  <ArraySnapshotView snapshot={currentSnapshot} mode={visualizer.mode} />
+                  <ArraySnapshotView snapshot={currentSnapshot} mode={visualizer.mode} onAnchorClick={handleGetHint} />
                 )}
               </div>
 

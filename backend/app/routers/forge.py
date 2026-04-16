@@ -11,8 +11,10 @@ from ..repositories import (
 )
 from ..schemas import (
     ChallengeCreateRequest,
+    ChallengeListResponse,
     ChallengeResponse,
     PosterCreateRequest,
+    PosterListResponse,
     PosterResponse,
 )
 
@@ -20,11 +22,12 @@ from ..schemas import (
 router = APIRouter(prefix="/api/forge", tags=["forge"])
 
 
-@router.get("/posters", response_model=list[PosterResponse])
+@router.get("/posters", response_model=PosterListResponse)
 async def read_posters(
     profile_id: str = Query(default="guest"),
-) -> list[PosterResponse]:
-    return [PosterResponse.model_validate(item) for item in list_posters(profile_id)]
+) -> PosterListResponse:
+    items = [PosterResponse.model_validate(item) for item in list_posters(profile_id)]
+    return PosterListResponse(items=items)
 
 
 @router.post("/posters", response_model=PosterResponse)
@@ -42,13 +45,14 @@ async def create_poster_endpoint(
     return PosterResponse.model_validate(poster)
 
 
-@router.get("/challenges", response_model=list[ChallengeResponse])
+@router.get("/challenges", response_model=ChallengeListResponse)
 async def read_challenges(
     profile_id: str = Query(default="guest"),
-) -> list[ChallengeResponse]:
-    return [
+) -> ChallengeListResponse:
+    items = [
         ChallengeResponse.model_validate(item) for item in list_challenges(profile_id)
     ]
+    return ChallengeListResponse(items=items)
 
 
 @router.post("/challenges", response_model=ChallengeResponse)

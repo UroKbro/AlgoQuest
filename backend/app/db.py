@@ -9,7 +9,7 @@ from .config import settings
 from .content import LESSONS
 
 
-def _database_path() -> Path:
+def get_database_path() -> Path:
     prefix = "sqlite:///"
     if not settings.database_url.startswith(prefix):
         raise ValueError("Only sqlite:/// database URLs are supported")
@@ -21,13 +21,13 @@ def _database_path() -> Path:
     return path
 
 
-DATABASE_PATH = _database_path()
 _initialized = False
 
 
 def _connect() -> sqlite3.Connection:
-    DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    connection = sqlite3.connect(DATABASE_PATH)
+    path = get_database_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    connection = sqlite3.connect(path)
     connection.row_factory = sqlite3.Row
     return connection
 

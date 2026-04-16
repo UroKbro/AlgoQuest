@@ -1,14 +1,15 @@
 from __future__ import annotations
+from typing import Optional, Union, Any, cast
 
 import json
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 from .content import LESSONS
 from .db import get_connection
 
 
 def _now_iso() -> str:
-    return datetime.now(UTC).isoformat()
+    return datetime.now(timezone.utc).isoformat()
 
 
 def get_settings(profile_id: str = "guest") -> dict:
@@ -296,7 +297,7 @@ def list_projects(profile_id: str = "guest") -> list[dict]:
 
 def create_project(
     profile_id: str,
-    blueprint_slug: str | None,
+    blueprint_slug: Optional[str],
     title: str,
     files: dict,
     architecture: dict,
@@ -323,7 +324,7 @@ def create_project(
     return _project_row_to_dict(row)
 
 
-def get_project(project_id: int, profile_id: str = "guest") -> dict | None:
+def get_project(project_id: int, profile_id: str = "guest") -> Optional[dict]:
     with get_connection() as connection:
         row = connection.execute(
             "SELECT * FROM projects WHERE id = ? AND profile_id = ?",
@@ -334,7 +335,7 @@ def get_project(project_id: int, profile_id: str = "guest") -> dict | None:
 
 def update_project(
     project_id: int, profile_id: str, title: str, files: dict, architecture: dict
-) -> dict | None:
+) -> Optional[dict]:
     with get_connection() as connection:
         connection.execute(
             """
@@ -358,7 +359,7 @@ def update_project(
     return _project_row_to_dict(row) if row else None
 
 
-def build_project_export(project_id: int, profile_id: str = "guest") -> dict | None:
+def build_project_export(project_id: int, profile_id: str = "guest") -> Optional[dict]:
     project = get_project(project_id, profile_id)
     if project is None:
         return None
@@ -385,7 +386,7 @@ def list_posters(profile_id: str = "guest") -> list[dict]:
 def create_poster(
     profile_id: str,
     source_type: str,
-    source_ref: str | None,
+    source_ref: Optional[str],
     title: str,
     payload: dict,
     visibility: str,
@@ -437,7 +438,7 @@ def create_challenge(
     return _challenge_row_to_dict(row)
 
 
-def get_challenge(challenge_id: int, profile_id: str = "guest") -> dict | None:
+def get_challenge(challenge_id: int, profile_id: str = "guest") -> Optional[dict]:
     with get_connection() as connection:
         row = connection.execute(
             "SELECT * FROM forge_challenges WHERE id = ? AND profile_id = ?",

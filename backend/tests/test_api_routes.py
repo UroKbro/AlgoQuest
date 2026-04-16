@@ -49,8 +49,9 @@ def test_progress_and_summary_flow(client):
 
     lessons = client.get("/api/progress/lessons", params={"profile_id": profile_id})
     assert lessons.status_code == 200
+    data = lessons.json()
     loop_mastery = next(
-        item for item in lessons.json() if item["lessonSlug"] == "loop-mastery"
+        item for item in data["items"] if item["lessonSlug"] == "loop-mastery"
     )
     assert loop_mastery["status"] == "in_progress"
 
@@ -103,7 +104,7 @@ def test_projects_endpoints(client):
 
     listed = client.get("/api/projects", params={"profile_id": profile_id})
     assert listed.status_code == 200
-    assert len(listed.json()) == 1
+    assert len(listed.json()["items"]) == 1
 
     fetched = client.get(
         f"/api/projects/{project_id}", params={"profile_id": profile_id}
@@ -150,7 +151,7 @@ def test_forge_endpoints(client):
 
     posters = client.get("/api/forge/posters", params={"profile_id": profile_id})
     assert posters.status_code == 200
-    assert len(posters.json()) == 1
+    assert len(posters.json()["items"]) == 1
 
     challenge = client.post(
         "/api/forge/challenges",
@@ -166,4 +167,4 @@ def test_forge_endpoints(client):
 
     challenges = client.get("/api/forge/challenges", params={"profile_id": profile_id})
     assert challenges.status_code == 200
-    assert len(challenges.json()) == 1
+    assert len(challenges.json()["items"]) == 1

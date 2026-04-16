@@ -4,7 +4,7 @@ import Editor from 'react-simple-code-editor'
 import Prism from 'prismjs'
 import 'prismjs/components/prism-python'
 import ReactMarkdown from 'react-markdown'
-import { fetchLessons, aiReviewLogic } from '../api'
+import { fetchLessons, aiReviewLogic, fetchLessonProgressList, updateLessonProgress } from '../api'
 import { realmConfig } from '../appConfig'
 import PageHeader from '../components/PageHeader'
 import { getPyodide, runPythonCode } from '../runtime/pyodide'
@@ -77,22 +77,35 @@ export default function DojoPage() {
 
     fetchLessons()
       .then((data) => {
-        if (cancelled) {
-          return
-        }
-
+        if (cancelled) return
         const items = data.items ?? []
         setState({ status: 'ready', items, message: '' })
-
         if (items.length > 0) {
           setSelectedLessonSlug((current) => current || items[0].slug)
         }
       })
       .catch((error) => {
-        if (!cancelled) {
-          setState({ status: 'error', items: [], message: error.message })
-        }
+        if (!cancelled) setState({ status: 'error', items: [], message: error.message })
       })
+
+    // Fetch user progress
+    fetchLessonProgressList('guest')
+      .then(data => {
+        if (cancelled) return
+        const progressItems = data.items ?? []
+        const completed = progressItems.filter(p => p.status === 'completed').map(p => p.lessonSlug)
+        const snapshots = progressItems.reduce((acc, p) => {
+          if (p.lastCodeSnapshot) acc[p.lessonSlug] = p.lastCodeSnapshot
+          return acc
+        }, {})
+
+        setProgressState(current => ({
+          ...current,
+          completedLessons: completed
+        }))
+        setCodeByLesson(current => ({ ...current, ...snapshots }))
+      })
+      .catch(err => console.warn("Failed to fetch backend progress", err))
 
     return () => {
       cancelled = true
@@ -183,12 +196,21 @@ export default function DojoPage() {
       const isSuccess = result.status === 'ok' && !result.stderr
 
       if (selectedLesson && isSuccess) {
+        const isNewCompletion = !progressState.completedLessons.includes(selectedLesson.slug)
+        
         setProgressState((current) => ({
-          completedLessons: current.completedLessons.includes(selectedLesson.slug)
-            ? current.completedLessons
-            : [...current.completedLessons, selectedLesson.slug],
+          completedLessons: isNewCompletion
+            ? [...current.completedLessons, selectedLesson.slug]
+            : current.completedLessons,
           lastLessonSlug: selectedLesson.slug,
         }))
+
+        // Sync to backend
+        updateLessonProgress(selectedLesson.slug, {
+          status: 'completed',
+          attempts: 1, // Simple increment or fixed 1 for now
+          lastCodeSnapshot: activeCode
+        }, 'guest').catch(err => console.error("Failed to sync progress to backend", err))
       }
 
       setRuntimeState({

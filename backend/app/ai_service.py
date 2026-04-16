@@ -1,16 +1,16 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Protocol
+from typing import Any, Protocol, Optional
 
 from .config import settings
 
 
 class AIService(Protocol):
-    async def review_logic(self, code: str, focus: str | None = None) -> dict[str, Any]:
+    async def review_logic(self, code: str, focus: Optional[str] = None) -> dict[str, Any]:
         ...
 
-    async def socratic_hint(self, code: str, context: str, query: str | None = None) -> str:
+    async def socratic_hint(self, code: str, context: str, query: Optional[str] = None) -> str:
         ...
 
     async def generate_blueprint(self, description: str) -> dict[str, Any]:
@@ -18,13 +18,13 @@ class AIService(Protocol):
 
 
 class MockAIService:
-    async def review_logic(self, code: str, focus: str | None = None) -> dict[str, Any]:
+    async def review_logic(self, code: str, focus: Optional[str] = None) -> dict[str, Any]:
         return {
             "critique": "### Logic Analysis\n\nThe implementation follows the core ritual. However, the state update in the main loop seems slightly delayed. Consider moving the pointer increment before the check.\n\n*   **Efficiency**: O(n)\n*   **Stability**: High",
             "logicScore": 85,
         }
 
-    async def socratic_hint(self, code: str, context: str, query: str | None = None) -> str:
+    async def socratic_hint(self, code: str, context: str, query: Optional[str] = None) -> str:
         return "Think about the boundary conditions. What happens if the array has only one element?"
 
     async def generate_blueprint(self, description: str) -> dict[str, Any]:
@@ -48,7 +48,7 @@ class GeminiAIService:
         genai.configure(api_key=api_key)
         self.model = genai.GenerativeModel("gemini-1.5-flash")
 
-    async def review_logic(self, code: str, focus: str | None = None) -> dict[str, Any]:
+    async def review_logic(self, code: str, focus: Optional[str] = None) -> dict[str, Any]:
         prompt = f"""
         Analyze the following Python code for algorithmic correctness and logic.
         Focus: {focus if focus else 'General logic and efficiency'}
@@ -74,7 +74,7 @@ class GeminiAIService:
                 "logicScore": 70,
             }
 
-    async def socratic_hint(self, code: str, context: str, query: str | None = None) -> str:
+    async def socratic_hint(self, code: str, context: str, query: Optional[str] = None) -> str:
         prompt = f"""
         You are a Socratic tutor for computer science. 
         Context: {context}

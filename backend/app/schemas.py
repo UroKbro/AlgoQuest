@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any, Literal, Optional, Union
 
 from pydantic import BaseModel, Field
 
@@ -75,10 +75,10 @@ class LessonProgressUpdateRequest(BaseModel):
 class WeeklyGateResponse(BaseModel):
     profileId: str
     weekStart: str
-    puzzlesRequired: int | None = None
-    codeSnippetsRequired: int | None = None
-    status: str | None = None
-    score: int | None = Field(default=None, ge=0, le=100)
+    puzzlesRequired: Optional[int] = None
+    codeSnippetsRequired: Optional[int] = None
+    status: Optional[str] = None
+    score: Optional[int] = Field(default=None, ge=0, le=100)
     strengths: list[str] = Field(default_factory=list)
     frictionPoints: list[str] = Field(default_factory=list)
 
@@ -132,7 +132,7 @@ class PathAnalyticsResponse(BaseModel):
 
 class ProjectPayload(BaseModel):
     title: str = Field(min_length=1, max_length=120)
-    blueprintSlug: str | None = None
+    blueprintSlug: Optional[str] = None
     files: dict[str, str] = Field(default_factory=dict)
     architecture: dict[str, Any] = Field(default_factory=dict)
 
@@ -140,7 +140,7 @@ class ProjectPayload(BaseModel):
 class ProjectResponse(BaseModel):
     id: int
     profileId: str
-    blueprintSlug: str | None = None
+    blueprintSlug: Optional[str] = None
     title: str
     files: dict[str, str]
     architecture: dict[str, Any]
@@ -151,7 +151,7 @@ class ProjectResponse(BaseModel):
 class ProjectExportResponse(BaseModel):
     projectId: int
     title: str
-    blueprintSlug: str | None = None
+    blueprintSlug: Optional[str] = None
     manifestVersion: int
     files: dict[str, str]
     architecture: dict[str, Any]
@@ -160,7 +160,7 @@ class ProjectExportResponse(BaseModel):
 
 class PosterCreateRequest(BaseModel):
     sourceType: str = Field(min_length=1, max_length=60)
-    sourceRef: str | None = Field(default=None, max_length=120)
+    sourceRef: Optional[str] = Field(default=None, max_length=120)
     title: str = Field(min_length=1, max_length=120)
     payload: dict[str, Any] = Field(default_factory=dict)
     visibility: Literal["private", "public"] = "private"
@@ -170,7 +170,7 @@ class PosterResponse(BaseModel):
     id: int
     profileId: str
     sourceType: str
-    sourceRef: str | None = None
+    sourceRef: Optional[str] = None
     title: str
     payload: dict[str, Any]
     visibility: str
@@ -198,7 +198,7 @@ class ErrorResponse(BaseModel):
 
 class AIReviewRequest(BaseModel):
     code: str = Field(min_length=1, max_length=50000)
-    focus: str | None = Field(default=None, max_length=200)
+    focus: Optional[str] = Field(default=None, max_length=200)
     language: str = "python"
 
 
@@ -210,7 +210,7 @@ class AIReviewResponse(BaseModel):
 class AISocraticRequest(BaseModel):
     code: str = Field(min_length=0, max_length=50000)
     problemContext: str = Field(min_length=1, max_length=1000)
-    userQuery: str | None = Field(default=None, max_length=1000)
+    userQuery: Optional[str] = Field(default=None, max_length=1000)
 
 
 class AISocraticResponse(BaseModel):
@@ -222,7 +222,23 @@ class AIBlueprintRequest(BaseModel):
 
 
 class AIBlueprintResponse(BaseModel):
-    blueprintSlug: str | None = None
+    blueprintSlug: Optional[str] = None
     title: str
     starterCode: str
     architecture: dict[str, Any]
+
+
+class ProjectListResponse(BaseModel):
+    items: list[ProjectResponse]
+
+
+class PosterListResponse(BaseModel):
+    items: list[PosterResponse]
+
+
+class ChallengeListResponse(BaseModel):
+    items: list[ChallengeResponse]
+
+
+class LessonProgressListResponse(BaseModel):
+    items: list[LessonProgressResponse]

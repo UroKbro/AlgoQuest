@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import Optional
 
 import os
 from pathlib import Path
@@ -9,7 +10,7 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
 
-def _split_csv(value: str | None, default: list[str]) -> list[str]:
+def _split_csv(value: Optional[str], default: list[str]) -> list[str]:
     if not value:
         return default
 

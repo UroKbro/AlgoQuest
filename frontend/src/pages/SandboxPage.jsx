@@ -12,10 +12,22 @@ class Particle {
     this.color = '#A855F7'
   }
 
-  update(stiffness, friction) {
+  update(stiffness, friction, mouse) {
     // Add logic friction
     this.vx *= (1 - friction / 100)
     this.vy *= (1 - friction / 100)
+
+    // Force field away from mouse
+    if (mouse.x !== null) {
+      const dxm = this.x - mouse.x
+      const dym = this.y - mouse.y
+      const dist = Math.sqrt(dxm * dxm + dym * dym)
+      if (dist < 100) {
+        const force = (100 - dist) / 100
+        this.vx += (dxm / dist) * force * 10
+        this.vy += (dym / dist) * force * 10
+      }
+    }
 
     // Add some "swarm" stiffness towards center
     const dx = (this.canvas.width / 2) - this.x
@@ -48,6 +60,7 @@ export default function SandboxPage() {
   })
   const [isSabotaged, setIsSabotaged] = useState(false)
   const particles = useRef([])
+  const mouse = useRef({ x: null, y: null })
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -68,7 +81,7 @@ export default function SandboxPage() {
       ctx.fillRect(0, 0, canvas.width, canvas.height)
 
       particles.current.forEach(p => {
-        p.update(params.stiffness, params.friction)
+        p.update(params.stiffness, params.friction, mouse.current)
         
         if (isSabotaged && Math.random() > 0.98) {
              // Visual glitch sabotage
@@ -110,6 +123,13 @@ export default function SandboxPage() {
             width={800} 
             height={500} 
             className={`sandbox-canvas${isSabotaged ? ' is-glitched' : ''}`}
+            onMouseMove={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect()
+              mouse.current = { x: e.clientX - rect.left, y: e.clientY - rect.top }
+            }}
+            onMouseLeave={() => {
+              mouse.current = { x: null, y: null }
+            }}
           />
         </article>
 

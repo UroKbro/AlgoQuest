@@ -28,6 +28,28 @@ export default function TerminalPage({ appState, setAppState }) {
     }, 800)
   }
 
+  function handleImport(event) {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      try {
+        const imported = JSON.parse(e.target.result)
+        setAppState((current) => ({
+          ...current,
+          ...imported,
+          // ensure settings are applied
+          settings: { ...current.settings, ...imported.settings }
+        }))
+        alert("AOS State Synchronized.")
+      } catch (err) {
+        alert("Failed to parse backup manifest.")
+      }
+    }
+    reader.readAsText(file)
+  }
+
   return (
     <>
       <PageHeader
@@ -125,9 +147,20 @@ export default function TerminalPage({ appState, setAppState }) {
             >
               {backupStatus === 'exporting' ? 'Exporting...' : backupStatus === 'done' ? 'Success' : 'Export Guest Data'}
             </button>
-            <button type="button" className="action-button" disabled>
+            <button 
+                type="button" 
+                className="action-button" 
+                onClick={() => document.getElementById('import-input').click()}
+            >
               Import Backup
             </button>
+            <input 
+                id="import-input" 
+                type="file" 
+                accept=".json" 
+                style={{ display: 'none' }} 
+                onChange={handleImport} 
+            />
           </div>
 
           <div className="terminal-sync-notice">

@@ -9,17 +9,23 @@ from ..repositories import (
     list_projects,
     update_project,
 )
-from ..schemas import ProjectExportResponse, ProjectPayload, ProjectResponse
+from ..schemas import (
+    ProjectExportResponse,
+    ProjectListResponse,
+    ProjectPayload,
+    ProjectResponse,
+)
 
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
 
-@router.get("", response_model=list[ProjectResponse])
+@router.get("", response_model=ProjectListResponse)
 async def read_projects(
     profile_id: str = Query(default="guest"),
-) -> list[ProjectResponse]:
-    return [ProjectResponse.model_validate(item) for item in list_projects(profile_id)]
+) -> ProjectListResponse:
+    items = [ProjectResponse.model_validate(item) for item in list_projects(profile_id)]
+    return ProjectListResponse(items=items)
 
 
 @router.post("", response_model=ProjectResponse)

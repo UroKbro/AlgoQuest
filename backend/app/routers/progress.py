@@ -11,6 +11,7 @@ from ..repositories import (
     upsert_lesson_progress,
 )
 from ..schemas import (
+    LessonProgressListResponse,
     LessonProgressResponse,
     LessonProgressUpdateRequest,
     PathAnalyticsResponse,
@@ -30,14 +31,15 @@ async def read_progress_summary(
     return ProgressSummaryResponse.model_validate(get_progress_summary(profile_id))
 
 
-@router.get("/progress/lessons", response_model=list[LessonProgressResponse])
+@router.get("/progress/lessons", response_model=LessonProgressListResponse)
 async def read_lesson_progress(
     profile_id: str = Query(default="guest"),
-) -> list[LessonProgressResponse]:
-    return [
+) -> LessonProgressListResponse:
+    items = [
         LessonProgressResponse.model_validate(item)
         for item in list_lesson_progress(profile_id)
     ]
+    return LessonProgressListResponse(items=items)
 
 
 @router.put("/progress/lessons/{lesson_slug}", response_model=LessonProgressResponse)

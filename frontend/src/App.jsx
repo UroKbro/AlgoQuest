@@ -11,6 +11,7 @@ import SandboxPage from './pages/SandboxPage'
 import WorldPage from './pages/WorldPage'
 import ForgePage from './pages/ForgePage'
 import PathPage from './pages/PathPage'
+import { fetchSettings, updateSettings } from './api'
 
 const settingsStorageKey = 'algoquest-settings'
 const defaultSettings = {
@@ -53,16 +54,30 @@ export default function App() {
 
   useEffect(() => {
     const storedSettings = readStoredSettings()
-
+    
+    // Initial sync from local storage
     setAppState((current) => ({
       ...current,
       settings: storedSettings,
     }))
+
+    // Try to fetch from backend
+    fetchSettings('guest')
+      .then(backendSettings => {
+        setAppState(current => ({
+          ...current,
+          settings: { ...current.settings, ...backendSettings }
+        }))
+      })
+      .catch(err => console.warn("Backend sync failed, using guest mode local storage.", err))
   }, [])
 
   useEffect(() => {
     localStorage.setItem(settingsStorageKey, JSON.stringify(appState.settings))
     applySettingsToDocument(appState.settings)
+    
+    // Throttle / Debounce this in production, but for now just push
+    updateSettings(appState.settings, 'guest').catch(() => {})
   }, [appState.settings])
 
   return (

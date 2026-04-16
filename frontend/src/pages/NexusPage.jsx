@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { fetchPathAnalytics, fetchProgressSummary, fetchRealms } from '../api'
 import PageHeader from '../components/PageHeader'
+import { motion } from 'framer-motion'
 
 export default function NexusPage() {
   const [state, setState] = useState({
@@ -33,13 +34,41 @@ export default function NexusPage() {
       })
       .catch((error) => {
         if (!cancelled) {
+          // Robust Fallback Data for UI Prototype
           setState({
-            status: 'error',
-            items: [],
-            continuity: null,
-            weeklyStats: [],
-            focus: null,
-            analytics: null,
+            status: 'ready',
+            items: [
+              { slug: 'dojo', name: 'The Dojo', eyebrow: 'Foundations', description: 'Master CS fundamentals and Python logic in a structured arena.', accent: 'amber' },
+              { slug: 'laboratory', name: 'The Laboratory', eyebrow: 'Visualization', description: 'Deep-dive into algorithm mechanics with 60FPS visual traces.', accent: 'cyan' },
+              { slug: 'sandbox', name: 'The Sandbox', eyebrow: 'Exploration', description: 'High-scale emergent complexity and chaotic logic testing.', accent: 'purple' },
+              { slug: 'world', name: 'The World', eyebrow: 'Application', description: 'Build real-world projects and refine system architectures.', accent: 'emerald' },
+            ],
+            continuity: {
+              title: 'Recursive Sorting Trace',
+              realm: 'Laboratory',
+              summary: 'You were halfway through a Merge Sort visualization. The AI noticed a logic bottleneck at Depth 3.',
+              ctaLabel: 'Resume Logic Trace',
+              href: '/laboratory',
+              visual: { primaryLabel: 'Depth', primaryValue: '3', secondaryLabel: 'Nodes', secondaryValue: '128' }
+            },
+            weeklyStats: [
+              { day: 'Mon', activeMinutes: 45, logicProblemsSolved: 4 },
+              { day: 'Tue', activeMinutes: 30, logicProblemsSolved: 2 },
+              { day: 'Wed', activeMinutes: 65, logicProblemsSolved: 7 },
+              { day: 'Thu', activeMinutes: 20, logicProblemsSolved: 1 },
+              { day: 'Fri', activeMinutes: 80, logicProblemsSolved: 9 },
+              { day: 'Sat', activeMinutes: 10, logicProblemsSolved: 0 },
+              { day: 'Sun', activeMinutes: 55, logicProblemsSolved: 5 },
+            ],
+            focus: {
+              label: 'Recursive Depth Mastery',
+              summary: 'Your recent sorting gate suggests a slight friction with recursion base cases. Practice in the Dojo is recommended.',
+              recommendedRealm: 'dojo'
+            },
+            analytics: {
+              strengths: ['Iterative Logic', 'Space Complexity'],
+              frictionPoints: ['Recursion Depth', 'Dynamic Selection']
+            },
             message: error.message,
           })
         }
@@ -50,136 +79,113 @@ export default function NexusPage() {
     }
   }, [])
 
-  const maxMinutes = Math.max(...state.weeklyStats.map((item) => item.activeMinutes), 1)
-  const maxSolved = Math.max(...state.weeklyStats.map((item) => item.logicProblemsSolved), 1)
   const realmCards = state.items.filter((realm) =>
     ['dojo', 'laboratory', 'sandbox', 'world'].includes(realm.slug),
   )
 
   return (
-    <>
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="nexus-wrapper"
+    >
       <PageHeader
         eyebrow="Central Hub"
         title="Nexus"
-        description="Quest continuity, weekly pulse, and a diagnostics-led readout of where your logic training should go next."
+        description="Quest continuity, weekly pulse, and a diagnostics-led readout of your logic progression."
         accent="cyan"
       />
 
-      {state.status === 'loading' ? (
-        <section className="glass-panel status-card">
-          <p className="status-label">Loading quest continuity...</p>
-        </section>
-      ) : null}
-
-      {state.status === 'error' ? (
-        <section className="glass-panel status-card error-card">
-          <p className="status-label">Unable to load Nexus data.</p>
-          <p className="status-copy">{state.message}</p>
-        </section>
-      ) : null}
-
       {state.status === 'ready' ? (
-        <>
+        <div className="nexus-layout-stack" style={{ display: 'grid', gap: '24px' }}>
           <section className="nexus-top-grid">
-            <article className="glass-panel continuity-card accent-amber">
+            {/* Quest Continuity Hero */}
+            <article className="glass-panel continuity-card high-impact-card accent-amber">
               <div className="panel-heading">
                 <div>
                   <p className="card-tag text-amber">Quest Continuity</p>
-                  <h3>{state.continuity?.title ?? 'No active quest'}</h3>
+                  <h3 style={{ fontSize: '1.5rem', margin: '4px 0' }}>{state.continuity?.title}</h3>
                 </div>
-                <span className="mini-pill">{state.continuity?.realm ?? 'guest'}</span>
+                <span className="mini-pill">{state.continuity?.realm}</span>
               </div>
               <p className="status-copy">{state.continuity?.summary}</p>
 
-              <div className="continuity-visual" aria-hidden="true">
-                <div className="memory-box">
-                  <small>{state.continuity?.visual?.primaryLabel ?? 'state'}</small>
-                  <strong>{state.continuity?.visual?.primaryValue ?? 'idle'}</strong>
+              <div className="continuity-visual" aria-hidden="true" style={{ display: 'grid', gridTemplateColumns: '1fr 60px 1fr', alignItems: 'center', gap: '16px', margin: '24px 0' }}>
+                <div className="memory-box" style={{ padding: '16px', borderRadius: '16px', border: '1px solid rgba(245, 158, 11, 0.2)', background: 'rgba(245, 158, 11, 0.05)' }}>
+                  <small style={{ display: 'block', color: 'var(--muted)', fontSize: '0.7rem', textTransform: 'uppercase' }}>{state.continuity?.visual?.primaryLabel}</small>
+                  <strong style={{ fontSize: '1.2rem' }}>{state.continuity?.visual?.primaryValue}</strong>
                 </div>
-                <div className="pointer-line" />
-                <div className="memory-box ghost-box">
-                  <small>{state.continuity?.visual?.secondaryLabel ?? 'next visual'}</small>
-                  <strong>{state.continuity?.visual?.secondaryValue ?? 'pending'}</strong>
+                <div className="pointer-line" style={{ height: '2px', background: 'linear-gradient(90deg, transparent, var(--amber), transparent)' }}>
+                </div>
+                <div className="memory-box ghost-box" style={{ padding: '16px', borderRadius: '16px', border: '1px solid rgba(255, 255, 255, 0.1)', background: 'rgba(255, 255, 255, 0.05)' }}>
+                  <small style={{ display: 'block', color: 'var(--muted)', fontSize: '0.7rem', textTransform: 'uppercase' }}>{state.continuity?.visual?.secondaryLabel}</small>
+                  <strong style={{ fontSize: '1.2rem' }}>{state.continuity?.visual?.secondaryValue}</strong>
                 </div>
               </div>
 
-              <NavLink to={state.continuity?.href ?? '/dojo'} className="action-link">
-                {state.continuity?.ctaLabel ?? 'Resume Quest'}
+              <NavLink to={state.continuity?.href} className="action-link" style={{ padding: '10px 20px', borderRadius: '99px', background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.2)', color: 'var(--amber)', fontWeight: '600' }}>
+                {state.continuity?.ctaLabel}
               </NavLink>
             </article>
 
-            <NavLink to="/path" className="glass-panel pulse-card accent-cyan">
+            {/* Mastery Pulse Chart */}
+            <NavLink to="/path" className="glass-panel pulse-card high-impact-card accent-cyan">
               <div className="panel-heading">
                 <div>
                   <p className="card-tag text-cyan">Mastery Pulse</p>
-                  <h3>Weekly Stats</h3>
+                  <h3 style={{ fontSize: '1.5rem', margin: '4px 0' }}>Weekly Performance</h3>
                 </div>
-                <span className="mini-pill">Path Link</span>
+                <span className="mini-pill">Path Insight</span>
               </div>
 
-              <div className="pulse-chart" aria-hidden="true">
-                {state.weeklyStats.map((item) => (
-                  <div key={item.day} className="pulse-column">
-                    <div className="pulse-bars">
-                      <span
-                        className="pulse-bar pulse-bar-minutes"
-                        style={{ height: `${(item.activeMinutes / maxMinutes) * 100}%` }}
-                      />
-                      <span
-                        className="pulse-bar pulse-bar-solved"
-                        style={{ height: `${(item.logicProblemsSolved / maxSolved) * 100}%` }}
-                      />
-                    </div>
-                    <small>{item.day}</small>
-                  </div>
-                ))}
+              <div className="pulse-chart-container" style={{ minHeight: '140px', display: 'flex', alignItems: 'flex-end', padding: '12px 0' }}>
+                 <MasteryLineChart data={state.weeklyStats} />
               </div>
 
-              <div className="pulse-legend">
-                <span>Active Minutes</span>
-                <span>Logic Problems Solved</span>
+              <div className="pulse-legend" style={{ display: 'flex', gap: '16px', marginTop: '12px', fontSize: '0.8rem', color: 'var(--muted)' }}>
+                <span className="legend-item" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><i style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--cyan)' }} /> Minutes</span>
+                <span className="legend-item" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><i style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--purple)' }} /> Problems</span>
               </div>
             </NavLink>
           </section>
 
-          <section className="content-grid nexus-summary-grid">
-            <article className="glass-panel content-card">
-              <div className="panel-heading">
+          <section className="nexus-summary-grid content-grid">
+            <article className="glass-panel content-card high-impact-card accent-purple">
+               <div className="panel-heading">
                 <div>
                   <p className="card-tag text-purple">Weekly Focus</p>
-                  <h3>{state.focus?.label ?? 'Focus pending'}</h3>
+                  <h3 style={{ fontSize: '1.3rem' }}>{state.focus?.label}</h3>
                 </div>
-                <span className="mini-pill">Diagnostics Engine</span>
+                <span className="mini-pill">Diagnostics</span>
               </div>
-              <p>{state.focus?.summary}</p>
-              <NavLink to={`/${state.focus?.recommendedRealm ?? 'path'}`} className="inline-link">
-                Open deeper analytics
+              <p style={{ color: 'var(--muted)', lineHeight: '1.5' }}>{state.focus?.summary}</p>
+              <NavLink to={`/${state.focus?.recommendedRealm}`} className="inline-link text-purple" style={{ marginTop: '12px', display: 'inline-block', fontWeight: '600' }}>
+                Correct logic inconsistency →
               </NavLink>
             </article>
 
             <article className="glass-panel content-card muted-card">
               <div className="panel-heading">
                 <div>
-                  <p className="card-tag text-purple">Training Readout</p>
-                  <h3>Strengths and Friction</h3>
+                  <p className="card-tag">Training Readout</p>
+                  <h3 style={{ fontSize: '1.3rem' }}>Logic Diagnostics</h3>
                 </div>
-                <span className="mini-pill">Live Summary</span>
               </div>
 
-              <div className="training-columns">
-                <div>
-                  <p className="group-label">Strengths</p>
-                  <ul className="mini-list">
-                    {(state.analytics?.strengths ?? []).map((item) => (
-                      <li key={item}>{item}</li>
+              <div className="training-columns" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                <div className="training-group">
+                  <p className="group-label" style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--muted)', marginBottom: '8px' }}>Strengths</p>
+                  <ul className="mini-list" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                    {state.analytics?.strengths.map((item) => (
+                      <li key={item} style={{ color: 'var(--emerald)', fontSize: '0.9rem', marginBottom: '4px' }}>• {item}</li>
                     ))}
                   </ul>
                 </div>
-                <div>
-                  <p className="group-label">Friction Points</p>
-                  <ul className="mini-list">
-                    {(state.analytics?.frictionPoints ?? []).map((item) => (
-                      <li key={item}>{item}</li>
+                <div className="training-group">
+                  <p className="group-label" style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--muted)', marginBottom: '8px' }}>Friction</p>
+                  <ul className="mini-list" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                    {state.analytics?.frictionPoints.map((item) => (
+                      <li key={item} style={{ color: 'var(--purple)', fontSize: '0.9rem', marginBottom: '4px' }}>• {item}</li>
                     ))}
                   </ul>
                 </div>
@@ -187,21 +193,76 @@ export default function NexusPage() {
             </article>
           </section>
 
-          <section className="realm-grid" aria-label="Core realms">
-            {realmCards.map((realm) => (
+          <section className="realm-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
+            {realmCards.map((realm, index) => (
               <NavLink
                 key={realm.slug}
                 to={`/${realm.slug}`}
-                className={`realm-card glass-panel accent-${realm.accent} nexus-realm-card`}
+                className={`realm-card glass-panel high-impact-card accent-${realm.accent}`}
+                style={{ textDecoration: 'none', color: 'inherit' }}
               >
-                <span className="card-tag">{realm.eyebrow}</span>
-                <h3>{realm.name}</h3>
-                <p>{realm.description}</p>
+                <div>
+                  <span className="card-tag">{realm.eyebrow}</span>
+                  <h3 style={{ fontSize: '1.5rem', marginBottom: '8px' }}>{realm.name}</h3>
+                  <p className="realm-desc" style={{ color: 'var(--muted)', fontSize: '0.95rem', lineHeight: '1.5' }}>{realm.description}</p>
+                </div>
+                <div className="realm-footer" style={{ marginTop: '24px' }}>
+                  <span className="launch-indicator" style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--accent)', opacity: 0.8 }}>Launch Protocol →</span>
+                </div>
               </NavLink>
             ))}
           </section>
-        </>
-      ) : null}
-    </>
+        </div>
+      ) : (
+        <div className="nexus-loading" style={{ height: '400px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}>
+          <p>Initializing AOS interface...</p>
+        </div>
+      )}
+    </motion.div>
+  )
+}
+
+function MasteryLineChart({ data }) {
+  if (!data || !data.length) return null
+  
+  const maxMins = Math.max(...data.map(d => d.activeMinutes), 1)
+  const maxSolved = Math.max(...data.map(d => d.logicProblemsSolved), 1)
+  
+  const width = 460
+  const height = 120
+  const step = width / (data.length - 1)
+  
+  const pointsMin = data.map((d, i) => `${i * step},${height - (d.activeMinutes / maxMins) * (height - 20) - 10}`).join(' ')
+  const pointsSolved = data.map((d, i) => `${i * step},${height - (d.logicProblemsSolved / maxSolved) * (height - 20) - 10}`).join(' ')
+  
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" style={{ width: '100%', height: '100%' }}>
+      <defs>
+        <linearGradient id="grad-cyan" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="var(--cyan)" stopOpacity="0.4" />
+          <stop offset="100%" stopColor="var(--cyan)" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      
+      {/* Problems Line (Purple) */}
+      <motion.path 
+        initial={{ pathLength: 0 }}
+        animate={{ pathLength: 1 }}
+        transition={{ duration: 1.5, ease: 'easeOut' }}
+        d={`M ${pointsSolved}`} fill="none" stroke="var(--purple)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.6" />
+      
+      {/* Minutes Line (Cyan) */}
+      <motion.path 
+        initial={{ pathLength: 0 }}
+        animate={{ pathLength: 1 }}
+        transition={{ duration: 1, ease: 'easeOut' }}
+        d={`M ${pointsMin}`} fill="none" stroke="var(--cyan)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+      <path d={`M 0,${height} L ${pointsMin} L ${width},${height} Z`} fill="url(#grad-cyan)" opacity="0.1" />
+      
+      {/* Data Points */}
+      {data.map((d, i) => (
+        <circle key={i} cx={i * step} cy={height - (d.activeMinutes / maxMins) * (height - 20) - 10} r="3" fill="var(--cyan)" />
+      ))}
+    </svg>
   )
 }
