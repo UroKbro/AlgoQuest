@@ -194,3 +194,35 @@ class ChallengeResponse(BaseModel):
 
 class ErrorResponse(BaseModel):
     detail: str
+
+
+class AIReviewRequest(BaseModel):
+    code: str = Field(min_length=1, max_length=50000)
+    focus: str | None = Field(default=None, max_length=200)
+    language: str = "python"
+
+
+class AIReviewResponse(BaseModel):
+    critique: str
+    logicScore: int = Field(ge=0, le=100)
+
+
+class AISocraticRequest(BaseModel):
+    code: str = Field(min_length=0, max_length=50000)
+    problemContext: str = Field(min_length=1, max_length=1000)
+    userQuery: str | None = Field(default=None, max_length=1000)
+
+
+class AISocraticResponse(BaseModel):
+    hint: str
+
+
+class AIBlueprintRequest(BaseModel):
+    description: str = Field(min_length=1, max_length=2000)
+
+
+class AIBlueprintResponse(BaseModel):
+    blueprintSlug: str | None = None
+    title: str
+    starterCode: str
+    architecture: dict[str, Any]

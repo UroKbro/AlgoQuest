@@ -437,6 +437,32 @@ def create_challenge(
     return _challenge_row_to_dict(row)
 
 
+def get_challenge(challenge_id: int, profile_id: str = "guest") -> dict | None:
+    with get_connection() as connection:
+        row = connection.execute(
+            "SELECT * FROM forge_challenges WHERE id = ? AND profile_id = ?",
+            (challenge_id, profile_id),
+        ).fetchone()
+    return _challenge_row_to_dict(row) if row else None
+
+
+def log_ai_usage(
+    profile_id: str,
+    endpoint: str,
+    prompt_preview: str,
+    status: str,
+    latency_ms: int,
+) -> None:
+    with get_connection() as connection:
+        connection.execute(
+            """
+            INSERT INTO ai_usage_logs (profile_id, endpoint, prompt_preview, status, latency_ms, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (profile_id, endpoint, prompt_preview, status, latency_ms, _now_iso()),
+        )
+
+
 def _project_row_to_dict(row) -> dict:
     return {
         "id": row["id"],

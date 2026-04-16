@@ -3,7 +3,8 @@ import { NavLink } from 'react-router-dom'
 import Editor from 'react-simple-code-editor'
 import Prism from 'prismjs'
 import 'prismjs/components/prism-python'
-import { fetchLessons } from '../api'
+import ReactMarkdown from 'react-markdown'
+import { fetchLessons, aiReviewLogic } from '../api'
 import { realmConfig } from '../appConfig'
 import PageHeader from '../components/PageHeader'
 import { getPyodide, runPythonCode } from '../runtime/pyodide'
@@ -69,6 +70,7 @@ export default function DojoPage() {
   const [codeByLesson, setCodeByLesson] = useState({})
   const [runtimeState, setRuntimeState] = useState({ status: 'idle', stdout: '', stderr: '', message: '' })
   const [progressState, setProgressState] = useState({ completedLessons: [], lastLessonSlug: '' })
+  const [aiState, setAiState] = useState({ status: 'idle', critique: '', score: 0 })
 
   useEffect(() => {
     let cancelled = false
@@ -197,6 +199,17 @@ export default function DojoPage() {
       })
     } catch (error) {
       setRuntimeState({ status: 'error', stdout: '', stderr: '', message: error.message })
+    }
+  }
+
+  async function handleAIReview() {
+    if (!selectedLesson) return
+    setAiState({ status: 'requesting', critique: '', score: 0 })
+    try {
+      const res = await aiReviewLogic(activeCode, `Lesson: ${selectedLesson.title}`)
+      setAiState({ status: 'ready', critique: res.critique, score: res.logicScore })
+    } catch (error) {
+      setAiState({ status: 'error', critique: `AI Review failed: ${error.message}`, score: 0 })
     }
   }
 
@@ -370,9 +383,47 @@ export default function DojoPage() {
                   </div>
                 </div>
               </section>
+
+              {aiState.status !== 'idle' && (
+                <section className="glass-panel critique-panel accent-purple" style={{ marginTop: '24px' }}>
+                  <div className="panel-heading">
+                    <div>
+                      <p className="card-tag text-purple">AI Logic Critique</p>
+                      <h3>Sensei Response</h3>
+                    </div>
+                    {aiState.score > 0 && <span className="mini-pill">{aiState.score}/100</span>}
+                  </div>
+                  <div className="status-copy markdown-critique">
+                    {aiState.status === 'requesting' ? (
+                      <p>Sensei is analyzing your logic rituals...</p>
+                    ) : (
+                      <ReactMarkdown>{aiState.critique}</ReactMarkdown>
+                    )}
+                  </div>
+                </section>
+              )}
             </article>
 
             <article className="glass-panel content-card dojo-side-card">
+              <div className="panel-heading">
+                <div>
+                  <p className="card-tag text-cyan">Sensei Assistance</p>
+                  <h3>Dojo Critique</h3>
+                </div>
+              </div>
+              <p className="status-copy">
+                Request an instant logical critique of your current implementation.
+              </p>
+              <button 
+                type="button" 
+                className="action-button action-button-primary"
+                onClick={handleAIReview}
+                disabled={aiState.status === 'requesting' || !selectedLesson}
+                style={{ width: '100%', marginBottom: '20px' }}
+              >
+                {aiState.status === 'requesting' ? 'Analyzing...' : 'Trigger Review Logic'}
+              </button>
+
               <div className="panel-heading">
                 <div>
                   <p className="card-tag text-cyan">Weekly Gate</p>

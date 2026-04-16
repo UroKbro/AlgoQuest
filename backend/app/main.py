@@ -2,19 +2,21 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from .config import settings
 from .db import init_db
+from .logger import log_info, log_error
 from .routers.content import router as content_router
 from .routers.forge import router as forge_router
 from .routers.health import router as health_router
 from .routers.projects import router as projects_router
 from .routers.progress import router as progress_router
 from .routers.settings import router as settings_router
+from .routers.ai import router as ai_router
 
 
 @asynccontextmanager
@@ -32,6 +34,40 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def payload_size_limit_middleware(request: Request, call_next):
+    # Enforce 1MB limit for POST/PUT/PATCH
+    if request.method in ("POST", "PUT", "PATCH"):
+        content_length = request.headers.get("content-length")
+        if content_length and int(content_length) > 1 * 1024 * 1024:
+            log_error(
+                "Payload too large",
+                path=request.url.path,
+                size=content_length,
+                limit="1MB"
+            )
+            return Response(content="Payload too large", status_code=413)
+    
+    return await call_next(request)
+
+
+@app.middleware("http")
+async def logging_middleware(request: Request, call_next):
+    import time
+    start_time = time.perf_counter()
+    
+    response = await call_next(request)
+    
+    process_time = (time.perf_counter() - start_time) * 1000
+    log_info(
+        f"{request.method} {request.url.path}",
+        status=response.status_code,
+        latency=f"{process_time:.2f}ms"
+    )
+    
+    return response
 
 
 @app.exception_handler(HTTPException)
@@ -52,3 +88,4 @@ app.include_router(progress_router)
 app.include_router(settings_router)
 app.include_router(projects_router)
 app.include_router(forge_router)
+app.include_router(ai_router)

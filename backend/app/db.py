@@ -110,6 +110,16 @@ def init_db() -> None:
                 parameters_json TEXT NOT NULL,
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             );
+
+            CREATE TABLE IF NOT EXISTS ai_usage_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                profile_id TEXT NOT NULL,
+                endpoint TEXT NOT NULL,
+                prompt_preview TEXT NOT NULL,
+                status TEXT NOT NULL,
+                latency_ms INTEGER NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
             """
         )
         _seed_defaults(connection)

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 
 from ..repositories import (
     create_challenge,
     create_poster,
+    get_challenge,
     list_challenges,
     list_posters,
 )
@@ -57,4 +58,14 @@ async def create_challenge_endpoint(
     challenge = create_challenge(
         profile_id, payload.targetRealm, payload.title, payload.parameters
     )
+    return ChallengeResponse.model_validate(challenge)
+
+
+@router.get("/challenges/{challenge_id}", response_model=ChallengeResponse)
+async def read_challenge(
+    challenge_id: int, profile_id: str = Query(default="guest")
+) -> ChallengeResponse:
+    challenge = get_challenge(challenge_id, profile_id)
+    if challenge is None:
+        raise HTTPException(status_code=404, detail="Challenge not found")
     return ChallengeResponse.model_validate(challenge)

@@ -91,12 +91,12 @@ Items are checked off as they are completed in the codebase.
 
 ## Frontend Foundation
 
-- [ ] Build reusable UI primitives: buttons, cards, panels, tags, modal, tooltip, sidebar, tabs, sliders, empty states.
-- [ ] Add motion primitives that match the design spec spring behavior.
-- [ ] Add realm-specific visual treatments so each core realm feels distinct while staying inside the shared cyber-minimal system.
-- [ ] Add route transition treatment that feels like a realm handoff or zoom-in instead of a hard page swap.
+- [x] Build reusable UI primitives: buttons, cards, panels, tags, modal, tooltip, sidebar, tabs, sliders, empty states.
+- [x] Add motion primitives that match the design spec spring behavior.
+- [x] Add realm-specific visual treatments so each core realm feels distinct while staying inside the shared cyber-minimal system.
+- [x] Add route transition treatment that feels like a realm handoff or zoom-in instead of a hard page swap.
 - [ ] Add a reusable floating overlay system for AI critique panels, discovery anchors, and future modal flows.
-- [ ] Add chart and telemetry primitives for weekly pulse, mastery radar, and small stat readouts.
+- [x] Add chart and telemetry primitives for weekly pulse, mastery radar, and small stat readouts.
 - [ ] Add a cinematic boot screen for the future Logic Engine install/load sequence.
 - [ ] Split shared frontend concerns into clearer modules: UI primitives, layout primitives, realm state, runtime state, and view helpers.
 - [ ] Add a realm page scaffold component so pages share header, sections, and support-panel composition consistently.
@@ -140,37 +140,37 @@ Items are checked off as they are completed in the codebase.
 - [x] Implement timeline snapshot capture and scrubber playback.
 - [x] Add discovery anchors and code-line synchronization.
 - [x] Support at least 3 canonical algorithm experiences.
-- [ ] Add visual diff feedback when code changes affect the algorithm.
-- [ ] Add a Telemetry Dock with step count, complexity hints, and active structure state for Laboratory playback.
-- [ ] Add a floating live-logic sandbox card for small code edits during algorithm study.
-- [ ] Build the high-scale simulation canvas path.
-- [ ] Build the parameter console with sliders and toggles.
-- [ ] Add presets and chaos/fault-injection controls.
-- [ ] Verify smooth interaction under large data loads.
-- [ ] Add structural sabotage flows that intentionally break the simulation and show recovery behavior.
-- [ ] Add ripple-feedback visuals so Sandbox parameter changes feel immediate and physical.
-- [ ] Build the blueprint browser.
-- [ ] Build the implementation IDE view.
-- [ ] Add the architecture map view with React Flow or equivalent.
-- [ ] Add the AI review trigger and review panel.
-- [ ] Add project save/export UX.
-- [ ] Add an idea-to-syntax entry flow that can generate a starter blueprint without replacing the user as the builder.
-- [ ] Add a dual-view toggle between the implementation editor and architecture map with shared selection state.
-- [ ] Add export flows that turn completed work into Forge-ready posters or downloadable project manifests.
-- [ ] Build the poster gallery grid.
-- [ ] Build the challenge browser.
-- [ ] Add launch flows from Forge into Lab and Sandbox.
-- [ ] Add challenge launch payloads that preserve exact parameters when teleporting into Laboratory or Sandbox.
-- [ ] Add poster metadata so Forge items explain what logic or system they demonstrate.
-- [ ] Build mastery radar and weekly breakdown views.
-- [ ] Add badge/belt presentation.
-- [ ] Add friction-point drilldown with teleport links back into learning flows.
-- [ ] Add strength and focus summaries so Path feels like a training readout instead of a raw stats dump.
+- [x] Add visual diff feedback when code changes affect the algorithm.
+- [x] Add a Telemetry Dock with step count, complexity hints, and active structure state for Laboratory playback.
+- [x] Add a floating live-logic sandbox card for small code edits during algorithm study.
+- [x] Build the high-scale simulation canvas path.
+- [x] Build the parameter console with sliders and toggles.
+- [x] Add presets and chaos/fault-injection controls.
+- [x] Verify smooth interaction under large data loads.
+- [x] Add structural sabotage flows that intentionally break the simulation and show recovery behavior.
+- [x] Add ripple-feedback visuals so Sandbox parameter changes feel immediate and physical.
+- [x] Build the blueprint browser.
+- [x] Build the implementation IDE view.
+- [x] Add the architecture map view with React Flow or equivalent.
+- [x] Add the AI review trigger and review panel.
+- [x] Add project save/export UX.
+- [x] Add an idea-to-syntax entry flow that can generate a starter blueprint without replacing the user as the builder.
+- [x] Add a dual-view toggle between the implementation editor and architecture map with shared selection state.
+- [x] Add export flows that turn completed work into Forge-ready posters or downloadable project manifests.
+- [x] Build the poster gallery grid.
+- [x] Build the challenge browser.
+- [x] Add launch flows from Forge into Lab and Sandbox.
+- [x] Add challenge launch payloads that preserve exact parameters when teleporting into Laboratory or Sandbox.
+- [x] Add poster metadata so Forge items explain what logic or system they demonstrate.
+- [x] Build mastery radar and weekly breakdown views.
+- [x] Add badge/belt presentation.
+- [x] Add friction-point drilldown with teleport links back into learning flows.
+- [x] Add strength and focus summaries so Path feels like a training readout instead of a raw stats dump.
 - [ ] Add portfolio framing so Path can evolve into a verified mastery showcase.
-- [ ] Add cache clear and progress export/import actions.
+- [x] Add cache clear and progress export/import actions.
 - [ ] Add backend/cloud-sync settings when auth exists.
-- [ ] Add ecosystem and extension placeholders in Terminal for the broader AOS control-center concept.
-- [ ] Add an exportable guest backup format that can later merge into cloud sync.
+- [x] Add ecosystem and extension placeholders in Terminal for the broader AOS control-center concept.
+- [x] Add an exportable guest backup format that can later merge into cloud sync.
 
 ## Backend Data Layer
 
@@ -205,21 +205,21 @@ Items are checked off as they are completed in the codebase.
 - [x] Add poster list/create endpoints.
 - [x] Add challenge list/create endpoints.
 - [x] Validate and sanitize project, poster, and challenge payloads before persistence.
-- [ ] Add launch payload contracts so Forge challenges can open directly in Laboratory or Sandbox.
+- [x] Add launch payload contracts so Forge challenges can open directly in Laboratory or Sandbox.
 - [ ] Add blueprint generation/storage shapes that support idea-to-syntax and starter skeleton flows.
 
 ## AI Broker
 
-- [ ] Add provider configuration without exposing keys to the client.
-- [ ] Implement `POST /api/ai/review-logic`.
-- [ ] Implement `POST /api/ai/socratic-anchor`.
-- [ ] Implement `POST /api/ai/idea-to-syntax`.
-- [ ] Validate payload size and request shape on all AI routes.
-- [ ] Normalize AI responses into stable structured contracts for the frontend.
+- [x] Add provider configuration without exposing keys to the client.
+- [x] Implement `POST /api/ai/review-logic`.
+- [x] Implement `POST /api/ai/socratic-anchor`.
+- [x] Implement `POST /api/ai/idea-to-syntax`.
+- [x] Validate payload size and request shape on all AI routes.
+- [x] Normalize AI responses into stable structured contracts for the frontend.
 - [ ] Log usage and failures for cost visibility and debugging.
 - [ ] Add rate limiting or quota controls.
-- [ ] Add AI response modes that distinguish critique, hint, explanation, and blueprint generation.
-- [ ] Add safeguards to keep AI feedback non-intrusive and user-triggered.
+- [x] Add AI response modes that distinguish critique, hint, explanation, and blueprint generation.
+- [x] Add safeguards to keep AI feedback non-intrusive and user-triggered.
 
 ## Auth And Cloud Sync
 

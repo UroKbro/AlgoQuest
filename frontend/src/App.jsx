@@ -7,6 +7,10 @@ import NexusPage from './pages/NexusPage'
 import NotFoundPage from './pages/NotFoundPage'
 import RealmPlaceholderPage from './pages/RealmPlaceholderPage'
 import TerminalPage from './pages/TerminalPage'
+import SandboxPage from './pages/SandboxPage'
+import WorldPage from './pages/WorldPage'
+import ForgePage from './pages/ForgePage'
+import PathPage from './pages/PathPage'
 
 const settingsStorageKey = 'algoquest-settings'
 const defaultSettings = {
@@ -68,10 +72,10 @@ export default function App() {
           <Route path="/" element={<NexusPage />} />
           <Route path="/dojo" element={<DojoPage />} />
           <Route path="/laboratory" element={<LaboratoryPage />} />
-          <Route path="/sandbox" element={<RealmPlaceholderPage slug="sandbox" />} />
-          <Route path="/world" element={<RealmPlaceholderPage slug="world" />} />
-          <Route path="/forge" element={<RealmPlaceholderPage slug="forge" />} />
-          <Route path="/path" element={<RealmPlaceholderPage slug="path" />} />
+          <Route path="/sandbox" element={<SandboxPage />} />
+          <Route path="/world" element={<WorldPage />} />
+          <Route path="/forge" element={<ForgePage />} />
+          <Route path="/path" element={<PathPage />} />
           <Route path="/terminal" element={<TerminalPage appState={appState} setAppState={setAppState} />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>

@@ -1,76 +1,143 @@
+import { useState } from 'react'
 import PageHeader from '../components/PageHeader'
-
-function SettingSlider({ label, value, min = 0, max = 100, onChange }) {
-  return (
-    <label className="setting-control">
-      <span className="setting-header">
-        <strong>{label}</strong>
-        <small>{value}</small>
-      </span>
-      <input type="range" min={min} max={max} value={value} onChange={onChange} />
-    </label>
-  )
-}
+import { realmConfig } from '../appConfig'
 
 export default function TerminalPage({ appState, setAppState }) {
-  const settings = appState.settings
+  const realm = realmConfig.terminal
+  const [backupStatus, setBackupStatus] = useState('idle')
 
-  function updateSettings(patch) {
+  function updateSetting(key, value) {
     setAppState((current) => ({
       ...current,
-      settings: { ...current.settings, ...patch },
+      settings: { ...current.settings, [key]: value },
     }))
+  }
+
+  function handleBackup() {
+    setBackupStatus('exporting')
+    setTimeout(() => {
+      const data = JSON.stringify(appState, null, 2)
+      const blob = new Blob([data], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `algoquest-backup-${new Date().toISOString().split('T')[0]}.json`
+      a.click()
+      setBackupStatus('done')
+      setTimeout(() => setBackupStatus('idle'), 2000)
+    }, 800)
   }
 
   return (
     <>
       <PageHeader
-        eyebrow="Control Center"
-        title="Terminal"
-        description="Guest settings persist locally and update the shell in real time."
-        accent="emerald"
+        eyebrow={realm.eyebrow}
+        title={realm.name}
+        description="Configure your Algorithm Operating System. Personalize the interface, manage guest persistence, and sync your mastery data."
+        accent={realm.accent}
       />
 
-      <section className="content-grid">
-        <article className="glass-panel content-card">
-          <h3>Personalization</h3>
+      <section className="terminal-layout content-grid">
+        <article className="glass-panel content-card accent-emerald">
+          <div className="panel-heading">
+            <div>
+              <p className="card-tag text-emerald">Personalization</p>
+              <h3>Interface Config</h3>
+            </div>
+            <span className="mini-pill">Real-time Reactive</span>
+          </div>
+
           <div className="settings-stack">
-            <SettingSlider
-              label="Neon Intensity"
-              value={settings.neonIntensity}
-              onChange={(event) => updateSettings({ neonIntensity: Number(event.target.value) })}
-            />
-            <SettingSlider
-              label="Sound Volume"
-              value={settings.soundVolume}
-              onChange={(event) => updateSettings({ soundVolume: Number(event.target.value) })}
-            />
-            <SettingSlider
-              label="Motion Blur"
-              value={settings.motionBlur}
-              max={36}
-              onChange={(event) => updateSettings({ motionBlur: Number(event.target.value) })}
-            />
+            <label className="setting-control">
+              <span className="setting-header">
+                <strong>Neon Intensity</strong>
+                <small>{appState.settings.neonIntensity}%</small>
+              </span>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={appState.settings.neonIntensity}
+                onChange={(e) => updateSetting('neonIntensity', Number(e.target.value))}
+              />
+            </label>
+
+            <label className="setting-control">
+              <span className="setting-header">
+                <strong>Motion Blur</strong>
+                <small>{appState.settings.motionBlur}px</small>
+              </span>
+              <input
+                type="range"
+                min="0"
+                max="80"
+                value={appState.settings.motionBlur}
+                onChange={(e) => updateSetting('motionBlur', Number(e.target.value))}
+              />
+            </label>
+
+            <label className="setting-control">
+              <span className="setting-header">
+                <strong>Audio Volume</strong>
+                <small>{appState.settings.soundVolume}%</small>
+              </span>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={appState.settings.soundVolume}
+                onChange={(e) => updateSetting('soundVolume', Number(e.target.value))}
+              />
+            </label>
+
             <label className="toggle-control">
               <span>
                 <strong>Reduced Motion</strong>
-                <small>Overrides animated transitions inside the shell.</small>
+                <small>Disables complex animations and spring physics.</small>
               </span>
               <input
                 type="checkbox"
-                checked={settings.reducedMotion}
-                onChange={(event) => updateSettings({ reducedMotion: event.target.checked })}
+                className="toggle-input"
+                checked={appState.settings.reducedMotion}
+                onChange={(e) => updateSetting('reducedMotion', e.target.checked)}
               />
             </label>
           </div>
         </article>
 
-        <article className="glass-panel content-card muted-card">
-          <h3>Session Snapshot</h3>
-          <p>Mode: {appState.sessionMode}</p>
-          <p>Notifications queued: {appState.notifications.length}</p>
-          <p>Tracked lesson progress entries: {appState.progress.lessons.length}</p>
-          <p>AI request state: {appState.aiRequestState.status}</p>
+        <article className="glass-panel content-card">
+          <div className="panel-heading">
+            <div>
+              <p className="card-tag text-cyan">AOS Persistence</p>
+              <h3>Cloud & Backup</h3>
+            </div>
+          </div>
+          <p className="status-copy">
+            AlgoQuest is currently running in <strong>Guest Mode</strong>. All progress is saved locally to your device.
+          </p>
+
+          <div className="backup-actions transport-row">
+            <button
+              type="button"
+              className="action-button action-button-primary"
+              onClick={handleBackup}
+              disabled={backupStatus === 'exporting'}
+            >
+              {backupStatus === 'exporting' ? 'Exporting...' : backupStatus === 'done' ? 'Success' : 'Export Guest Data'}
+            </button>
+            <button type="button" className="action-button" disabled>
+              Import Backup
+            </button>
+          </div>
+
+          <div className="terminal-sync-notice">
+            <p className="group-label">Upcoming Features</p>
+            <ul className="mini-list">
+              <li>End-to-end encrypted cloud sync</li>
+              <li>Mastery profile verification</li>
+              <li>Cross-device session handoff</li>
+            </ul>
+          </div>
         </article>
       </section>
     </>

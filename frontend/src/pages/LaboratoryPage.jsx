@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { fetchAlgorithms } from '../api'
+import { useLocation } from 'react-router-dom'
+import { fetchAlgorithms, aiSocraticAnchor } from '../api'
 import { realmConfig } from '../appConfig'
 import PageHeader from '../components/PageHeader'
+import Editor from 'react-simple-code-editor'
+import Prism from 'prismjs'
+import 'prismjs/components/prism-python'
 
 const graphNodes = {
   A: { x: 80, y: 70 },
@@ -36,6 +40,14 @@ const algorithmVisualizers = {
       '    if values[mid] < target: low = mid + 1',
       '    else: high = mid - 1',
     ],
+    complexity: { time: 'O(log N)', space: 'O(1)' },
+    getStructureState(snapshot) {
+      return {
+        'Index Range': `${snapshot.low} → ${snapshot.high}`,
+        'Midpoint': snapshot.mid !== null ? snapshot.mid : 'none',
+        'Target': 36
+      }
+    },
     buildSnapshots() {
       const values = [3, 7, 12, 18, 21, 24, 31, 36, 42, 49, 56]
       const target = 36
@@ -122,6 +134,13 @@ const algorithmVisualizers = {
       '    right = merge_sort(values[mid:])',
       '    return merge(left, right)',
     ],
+    complexity: { time: 'O(N log N)', space: 'O(N)' },
+    getStructureState(snapshot) {
+      return {
+        'Active Range': snapshot.activeRange ? `${snapshot.activeRange[0]}–${snapshot.activeRange[1]}` : 'none',
+        'Merged Status': snapshot.mergedIndices?.length > 0 ? 'Partial Merge' : 'Splitting'
+      }
+    },
     buildSnapshots() {
       const initial = [38, 27, 43, 3, 9, 82, 10]
       const working = initial.slice()
@@ -218,6 +237,14 @@ const algorithmVisualizers = {
       '    mark current as visited',
       'return distances',
     ],
+    complexity: { time: 'O((V + E) log V)', space: 'O(V)' },
+    getStructureState(snapshot) {
+      return {
+        'Current Node': snapshot.currentNode || 'none',
+        'Visited': `${snapshot.visited.length} / 6`,
+        'Frontier Size': snapshot.frontier.length
+      }
+    },
     buildSnapshots() {
       const distances = { A: 0, B: Infinity, C: Infinity, D: Infinity, E: Infinity, F: Infinity }
       const visited = new Set()
@@ -385,7 +412,12 @@ function GraphSnapshotView({ snapshot }) {
               <circle
                 r="28"
                 className={`graph-node${isCurrent ? ' is-current' : ''}${isVisited ? ' is-visited' : ''}${isFrontier ? ' is-frontier' : ''}`}
+                onClick={() => handleGetHint(`node ${node}`)}
+                style={{ cursor: 'help' }}
               />
+              {isCurrent && (
+                  <circle r="35" className="discovery-anchor-glow" />
+              )}
               <text y="6" textAnchor="middle" className="graph-label">
                 {node}
               </text>
@@ -400,15 +432,27 @@ function GraphSnapshotView({ snapshot }) {
   )
 }
 
-function CodePanel({ lines, activeLine }) {
+function SandboxPanel({ code, onCodeChange, activeLine, isModified }) {
   return (
-    <ol className="code-lines">
-      {lines.map((line, index) => (
-        <li key={line} className={activeLine === index + 1 ? 'is-active' : ''}>
-          <code>{line}</code>
-        </li>
-      ))}
-    </ol>
+    <div className={`sandbox-editor${isModified ? ' is-modified' : ''}`}>
+      {isModified && (
+        <div className="logic-delta-badge" title="User logic differs from canonical study material.">
+          Logic Delta Detected
+        </div>
+      )}
+      <Editor
+        value={code}
+        onValueChange={onCodeChange}
+        highlight={(value) => Prism.highlight(value, Prism.languages.python, 'python')}
+        padding={18}
+        textareaClassName="code-editor-textarea"
+        preClassName="code-editor-pre"
+        className="code-editor"
+      />
+      <div className="editor-overlay-hints">
+        {activeLine !== null && <div className="active-line-indicator" style={{ top: `${(activeLine - 1) * 1.7 + 1.1}rem` }} />}
+      </div>
+    </div>
   )
 }
 
@@ -418,6 +462,26 @@ export default function LaboratoryPage() {
   const [selectedSlug, setSelectedSlug] = useState('binary-search')
   const [stepIndex, setStepIndex] = useState(0)
   const [isPlaying, setIsPlaying] = useState(false)
+  const [customCodes, setCustomCodes] = useState({})
+  const [aiHint, setAiHint] = useState({ status: 'idle', hint: '', anchor: null })
+  const location = useLocation()
+
+  useEffect(() => {
+    if (location.state?.challenge?.algoSlug) {
+      setSelectedSlug(location.state.challenge.algoSlug)
+    }
+  }, [location.state])
+
+  async function handleGetHint(anchorName) {
+    setAiHint({ status: 'requesting', hint: '', anchor: anchorName })
+    try {
+      const context = `Algorithm: ${activeSlug}, Visual Phase: ${currentSnapshot?.message ?? 'General'}`
+      const res = await aiSocraticAnchor(activeCode, context, `Tell me about the ${anchorName} here.`)
+      setAiHint({ status: 'ready', hint: res.hint, anchor: anchorName })
+    } catch (error) {
+      setAiHint({ status: 'error', hint: 'Sensei is silent. Try again.', anchor: anchorName })
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -461,6 +525,14 @@ export default function LaboratoryPage() {
     setStepIndex(0)
     setIsPlaying(false)
   }, [activeSlug])
+
+  const canonicalCode = useMemo(() => visualizer.codeLines.join('\n'), [visualizer.codeLines])
+  const activeCode = customCodes[activeSlug] ?? canonicalCode
+  const isLogicModified = activeCode !== canonicalCode
+
+  const structureState = useMemo(() => {
+    return visualizer.getStructureState?.(currentSnapshot) ?? {}
+  }, [visualizer, currentSnapshot])
 
   useEffect(() => {
     if (!isPlaying) {
@@ -618,6 +690,41 @@ export default function LaboratoryPage() {
               <article className="glass-panel content-card">
                 <div className="panel-heading">
                   <div>
+                    <p className="card-tag text-purple">Trace Feed</p>
+                    <h3>Operational Log</h3>
+                  </div>
+                </div>
+                <div className="trace-list">
+                  {visualizer.snapshots.map((snap, i) => (
+                    <div
+                      key={i}
+                      className={`trace-item${i === stepIndex ? ' is-active' : ''}`}
+                      onClick={() => setStepIndex(i)}
+                    >
+                      <span className="trace-step">{String(i).padStart(2, '0')}</span>
+                      <p>{snap.message}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {aiHint.status !== 'idle' && (
+                  <div className="glass-panel ai-hint-bubble accent-cyan" style={{ marginTop: '20px' }}>
+                    <div className="panel-heading">
+                      <p className="card-tag text-cyan">Sensei Hint: {aiHint.anchor}</p>
+                    </div>
+                    <p className="status-copy">
+                      {aiHint.status === 'requesting' ? 'Whispering into the logic void...' : aiHint.hint}
+                    </p>
+                    {aiHint.status === 'ready' && (
+                      <button className="inline-link" onClick={() => setAiHint({ status: 'idle', hint: '', anchor: null })}>Dismiss</button>
+                    )}
+                  </div>
+                )}
+              </article>
+
+              <article className="glass-panel content-card">
+                <div className="panel-heading">
+                  <div>
                     <p className="card-tag text-cyan">Logic Snapshot</p>
                     <h3>Telemetry Dock</h3>
                   </div>
@@ -639,6 +746,35 @@ export default function LaboratoryPage() {
                     <dt>Anchor Count</dt>
                     <dd>{visualizer.anchors.length}</dd>
                   </div>
+                  {visualizer.complexity && (
+                    <>
+                      <div>
+                        <dt>Time Complexity</dt>
+                        <dd className="text-cyan">{visualizer.complexity.time}</dd>
+                      </div>
+                      <div>
+                        <dt>Space Complexity</dt>
+                        <dd className="text-cyan">{visualizer.complexity.space}</dd>
+                      </div>
+                    </>
+                  )}
+                </dl>
+              </article>
+
+              <article className="glass-panel content-card">
+                <div className="panel-heading">
+                  <div>
+                    <p className="card-tag text-purple">Structure State</p>
+                    <h3>Active Variables</h3>
+                  </div>
+                </div>
+                <dl className="telemetry-list">
+                  {Object.entries(structureState).map(([key, value]) => (
+                    <div key={key}>
+                      <dt>{key}</dt>
+                      <dd>{value}</dd>
+                    </div>
+                  ))}
                 </dl>
               </article>
 
@@ -648,8 +784,21 @@ export default function LaboratoryPage() {
                     <p className="card-tag text-cyan">Live-Logic Sandbox</p>
                     <h3>Pseudocode Sync</h3>
                   </div>
+                  <button
+                    type="button"
+                    className="mini-pill"
+                    onClick={() => setCustomCodes((prev) => ({ ...prev, [activeSlug]: canonicalCode }))}
+                    disabled={!isLogicModified}
+                  >
+                    Reset Logic
+                  </button>
                 </div>
-                <CodePanel lines={visualizer.codeLines} activeLine={currentSnapshot.line} />
+                <SandboxPanel
+                  code={activeCode}
+                  onCodeChange={(newCode) => setCustomCodes((prev) => ({ ...prev, [activeSlug]: newCode }))}
+                  activeLine={currentSnapshot.line}
+                  isModified={isLogicModified}
+                />
               </article>
             </aside>
           </section>
