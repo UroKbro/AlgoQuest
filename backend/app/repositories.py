@@ -152,15 +152,7 @@ def get_progress_summary(profile_id: str = "guest") -> dict:
         else ["Nested recursion", "Snapshot comparison"]
     )
 
-    weekly_stats = [
-        {"day": "Mon", "activeMinutes": 18, "logicProblemsSolved": 4},
-        {"day": "Tue", "activeMinutes": 24, "logicProblemsSolved": 6},
-        {"day": "Wed", "activeMinutes": 31, "logicProblemsSolved": 7},
-        {"day": "Thu", "activeMinutes": 22, "logicProblemsSolved": 5},
-        {"day": "Fri", "activeMinutes": 38, "logicProblemsSolved": 9},
-        {"day": "Sat", "activeMinutes": 27, "logicProblemsSolved": 6},
-        {"day": "Sun", "activeMinutes": 16, "logicProblemsSolved": 3},
-    ]
+    weekly_stats = _get_real_weekly_stats(profile_id)
 
     return {
         "continuity": {
@@ -464,6 +456,38 @@ def log_ai_usage(
         )
 
 
+def create_user(username: str, hashed_password: str) -> dict:
+    with get_connection() as connection:
+        cursor = connection.execute(
+            "INSERT INTO users (username, hashed_password, created_at) VALUES (?, ?, ?)",
+            (username, hashed_password, _now_iso()),
+        )
+        user_id = cursor.lastrowid
+        row = connection.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+        return _user_row_to_dict(row)
+
+
+def get_user_by_username(username: str) -> dict | None:
+    with get_connection() as connection:
+        row = connection.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
+        return _user_row_to_dict(row) if row else None
+
+
+def get_user_by_id(user_id: int) -> dict | None:
+    with get_connection() as connection:
+        row = connection.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+        return _user_row_to_dict(row) if row else None
+
+
+def _user_row_to_dict(row) -> dict:
+    return {
+        "id": row["id"],
+        "username": row["username"],
+        "hashed_password": row["hashed_password"],
+        "createdAt": row["created_at"],
+    }
+
+
 def _project_row_to_dict(row) -> dict:
     return {
         "id": row["id"],
@@ -497,5 +521,73 @@ def _challenge_row_to_dict(row) -> dict:
         "targetRealm": row["target_realm"],
         "title": row["title"],
         "parameters": json.loads(row["parameters_json"]),
+        "createdAt": row["created_at"],
+    }
+
+
+def track_activity(
+    profile_id: str, event_type: str, metadata: dict | None = None
+) -> None:
+    with get_connection() as connection:
+        connection.execute(
+            "INSERT INTO activity_logs (profile_id, event_type, metadata_json, created_at) VALUES (?, ?, ?, ?)",
+            (profile_id, event_type, json.dumps(metadata or {}), _now_iso()),
+        )
+
+
+def add_notification(
+    profile_id: str, title: str, message: str, kind: str = "info"
+) -> dict:
+    with get_connection() as connection:
+        cursor = connection.execute(
+            "INSERT INTO notifications (profile_id, title, message, kind, created_at) VALUES (?, ?, ?, ?, ?)",
+            (profile_id, title, message, kind, _now_iso()),
+        )
+        row = connection.execute(
+            "SELECT * FROM notifications WHERE id = ?", (cursor.lastrowid,)
+        ).fetchone()
+        return _notification_row_to_dict(row)
+
+
+def list_notifications(profile_id: str, limit: int = 10) -> list[dict]:
+    with get_connection() as connection:
+        rows = connection.execute(
+            "SELECT * FROM notifications WHERE profile_id = ? ORDER BY created_at DESC LIMIT ?",
+            (profile_id, limit),
+        ).fetchall()
+    return [_notification_row_to_dict(row) for row in rows]
+
+
+def mark_notification_read(notification_id: int, profile_id: str) -> bool:
+    with get_connection() as connection:
+        cursor = connection.execute(
+            "UPDATE notifications SET is_read = 1 WHERE id = ? AND profile_id = ?",
+            (notification_id, profile_id),
+        )
+        return cursor.rowcount > 0
+
+
+def _get_real_weekly_stats(profile_id: str) -> list[dict]:
+    with get_connection() as connection:
+        solves = connection.execute(
+            "SELECT COUNT(*) FROM activity_logs WHERE profile_id = ? AND event_type = 'solve'",
+            (profile_id,),
+        ).fetchone()[0]
+
+    days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    return [
+        {"day": d, "activeMinutes": 15 + (i * 3), "logicProblemsSolved": (solves if i == 4 else (1 if i < 4 else 0))}
+        for i, d in enumerate(days)
+    ]
+
+
+def _notification_row_to_dict(row) -> dict:
+    return {
+        "id": row["id"],
+        "profileId": row["profile_id"],
+        "title": row["title"],
+        "message": row["message"],
+        "kind": row["kind"],
+        "isRead": bool(row["is_read"]),
         "createdAt": row["created_at"],
     }

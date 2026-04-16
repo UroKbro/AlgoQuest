@@ -3,12 +3,14 @@ from __future__ import annotations
 from fastapi import APIRouter, Query
 
 from ..repositories import (
+    add_notification,
     get_current_weekly_gate,
     get_path_analytics,
     get_progress_summary,
     list_lesson_progress,
     submit_weekly_gate,
-    upsert_lesson_progress,
+    track_activity,
+    update_lesson_progress,
 )
 from ..schemas import (
     LessonProgressListResponse,
@@ -48,13 +50,23 @@ async def write_lesson_progress(
     payload: LessonProgressUpdateRequest,
     profile_id: str = Query(default="guest"),
 ) -> LessonProgressResponse:
-    item = upsert_lesson_progress(
+    item = update_lesson_progress(
         profile_id,
         lesson_slug,
         payload.status,
         payload.attempts,
         payload.lastCodeSnapshot,
     )
+
+    if payload.status == "completed":
+        track_activity(profile_id, "solve", {"lesson_id": lesson_slug})
+        add_notification(
+            profile_id,
+            "Mastery Gained",
+            f"You have successfully conquered {lesson_slug}.",
+            "success",
+        )
+
     return LessonProgressResponse.model_validate(item)
 
 

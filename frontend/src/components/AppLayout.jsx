@@ -37,10 +37,30 @@ export default function AppLayout({ appState }) {
 
       <main className="page-shell">
         <section className="glass-panel topbar">
-          <span className="topbar-pill">Session: {appState.sessionMode}</span>
-          <span className="topbar-pill">Notifications: {appState.notifications.length}</span>
-          <span className="topbar-pill">AI: {appState.aiRequestState.status}</span>
+          <div className="topbar-left">
+            <span className="topbar-pill">Session: {appState.sessionMode}</span>
+            <span className="topbar-pill">Notifications: {appState.notifications.length}</span>
+            <span className="topbar-pill">AI: {appState.aiRequestState.status}</span>
+          </div>
+          <div className="topbar-search">
+            <input type="text" placeholder="Search AOS..." className="search-input" />
+          </div>
         </section>
+
+        <div className="notification-toast-container">
+          {appState.notifications.map(notif => (
+            <motion.div 
+              key={notif.id}
+              initial={{ opacity: 0, y: 50, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className={`notification-toast is-${notif.type}`}
+            >
+               <strong>{notif.title}</strong>
+               <p>{notif.message}</p>
+            </motion.div>
+          ))}
+        </div>
 
         <AnimatePresence mode="wait">
           <motion.div

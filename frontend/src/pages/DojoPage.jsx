@@ -213,6 +213,12 @@ export default function DojoPage() {
         }, 'guest').catch(err => console.error("Failed to sync progress to backend", err))
       }
 
+      if (result.status === 'ok' && !result.stderr) {
+         onNotify?.('Logic Success', 'Code executed and verified.', 'success')
+      } else if (result.stderr) {
+         onNotify?.('Logic Breach', 'Syntax error or runtime exception detected.', 'error')
+      }
+
       setRuntimeState({
         status: result.status === 'ok' ? 'ready' : 'error',
         stdout: result.stdout ?? '',
@@ -220,7 +226,8 @@ export default function DojoPage() {
         message: '',
       })
     } catch (error) {
-      setRuntimeState({ status: 'error', stdout: '', stderr: '', message: error.message })
+       onNotify?.('Engine Failure', error.message, 'error')
+       setRuntimeState({ status: 'error', stdout: '', stderr: '', message: error.message })
     }
   }
 

@@ -465,6 +465,7 @@ export default function LaboratoryPage() {
   const [isPlaying, setIsPlaying] = useState(false)
   const [customCodes, setCustomCodes] = useState({})
   const [aiHint, setAiHint] = useState({ status: 'idle', hint: '', anchor: null })
+  const [playbackSpeed, setPlaybackSpeed] = useState(1100)
   const location = useLocation()
 
   useEffect(() => {
@@ -550,12 +551,12 @@ export default function LaboratoryPage() {
 
         return current + 1
       })
-    }, 1100)
+    }, playbackSpeed)
 
     return () => {
       window.clearInterval(intervalId)
     }
-  }, [isPlaying, visualizer.snapshots.length])
+  }, [isPlaying, visualizer.snapshots.length, playbackSpeed])
 
   return (
     <>
@@ -667,6 +668,21 @@ export default function LaboratoryPage() {
                     setIsPlaying(false)
                     setStepIndex(Number(event.target.value))
                   }}
+                />
+              </label>
+
+              <label className="scrubber-block">
+                <span className="setting-header">
+                  <strong>Playback Velocity</strong>
+                  <small>{(2000 - playbackSpeed) / 100}x</small>
+                </span>
+                <input
+                  type="range"
+                  min="200"
+                  max="1800"
+                  step="100"
+                  value={2000 - playbackSpeed}
+                  onChange={(event) => setPlaybackSpeed(2000 - Number(event.target.value))}
                 />
               </label>
 

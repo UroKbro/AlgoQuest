@@ -228,6 +228,28 @@ class AIBlueprintResponse(BaseModel):
     architecture: dict[str, Any]
 
 
+class UserSignupRequest(BaseModel):
+    username: str = Field(min_length=3, max_length=20)
+    password: str = Field(min_length=6)
+
+
+class UserLoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class UserResponse(BaseModel):
+    id: int
+    username: str
+    createdAt: str
+
+
+class TokenResponse(BaseModel):
+    accessToken: str
+    tokenType: str = "bearer"
+    user: UserResponse
+
+
 class ProjectListResponse(BaseModel):
     items: list[ProjectResponse]
 

@@ -10,13 +10,7 @@ from fastapi.responses import JSONResponse
 from .config import settings
 from .db import init_db
 from .logger import log_info, log_error
-from .routers.content import router as content_router
-from .routers.forge import router as forge_router
-from .routers.health import router as health_router
-from .routers.projects import router as projects_router
-from .routers.progress import router as progress_router
-from .routers.settings import router as settings_router
-from .routers.ai import router as ai_router
+from .routers import ai, forge, progress, projects, content, auth, notifications, settings, health
 
 
 @asynccontextmanager
@@ -82,10 +76,12 @@ async def validation_exception_handler(_, exc: RequestValidationError) -> JSONRe
     )
 
 
-app.include_router(health_router)
-app.include_router(content_router)
-app.include_router(progress_router)
-app.include_router(settings_router)
-app.include_router(projects_router)
-app.include_router(forge_router)
-app.include_router(ai_router)
+app.include_router(health.router)
+app.include_router(content.router)
+app.include_router(progress.router)
+app.include_router(settings.router)
+app.include_router(projects.router)
+app.include_router(forge.router)
+app.include_router(ai.router)
+app.include_router(auth.router)
+app.include_router(notifications.router)

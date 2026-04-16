@@ -68,8 +68,12 @@ export default function App() {
           ...current,
           settings: { ...current.settings, ...backendSettings }
         }))
+        triggerNotification('System Online', 'Mastery data synchronized with backend.', 'success')
       })
-      .catch(err => console.warn("Backend sync failed, using guest mode local storage.", err))
+      .catch(err => {
+          console.warn("Backend sync failed, using guest mode local storage.", err)
+          triggerNotification('Guest Mode', 'Local persistence active. Cloud sync unavailable.', 'warning')
+      })
   }, [])
 
   useEffect(() => {
@@ -80,18 +84,32 @@ export default function App() {
     updateSettings(appState.settings, 'guest').catch(() => {})
   }, [appState.settings])
 
+  function triggerNotification(title, message, type = 'info') {
+    const id = Date.now()
+    setAppState(current => ({
+      ...current,
+      notifications: [...current.notifications, { id, title, message, type }]
+    }))
+    setTimeout(() => {
+      setAppState(current => ({
+        ...current,
+        notifications: current.notifications.filter(n => n.id !== id)
+      }))
+    }, 5000)
+  }
+
   return (
     <BrowserRouter>
       <Routes>
         <Route element={<AppLayout appState={appState} />}>
           <Route path="/" element={<NexusPage />} />
-          <Route path="/dojo" element={<DojoPage />} />
-          <Route path="/laboratory" element={<LaboratoryPage />} />
-          <Route path="/sandbox" element={<SandboxPage />} />
-          <Route path="/world" element={<WorldPage />} />
-          <Route path="/forge" element={<ForgePage />} />
-          <Route path="/path" element={<PathPage />} />
-          <Route path="/terminal" element={<TerminalPage appState={appState} setAppState={setAppState} />} />
+          <Route path="/dojo" element={<DojoPage onNotify={triggerNotification} />} />
+          <Route path="/laboratory" element={<LaboratoryPage onNotify={triggerNotification} />} />
+          <Route path="/sandbox" element={<SandboxPage onNotify={triggerNotification} />} />
+          <Route path="/world" element={<WorldPage onNotify={triggerNotification} />} />
+          <Route path="/forge" element={<ForgePage onNotify={triggerNotification} />} />
+          <Route path="/path" element={<PathPage onNotify={triggerNotification} />} />
+          <Route path="/terminal" element={<TerminalPage appState={appState} setAppState={setAppState} onNotify={triggerNotification} />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>

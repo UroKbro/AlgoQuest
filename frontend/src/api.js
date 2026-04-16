@@ -2,12 +2,33 @@ const defaultBaseUrl = 'http://127.0.0.1:8000'
 
 export const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? defaultBaseUrl
 
+let authToken = localStorage.getItem('algoquest-token')
+
+export function setAuthToken(token) {
+  authToken = token
+  if (token) {
+    localStorage.setItem('algoquest-token', token)
+  } else {
+    localStorage.removeItem('algoquest-token')
+  }
+}
+
+function getHeaders() {
+  const headers = { 'Content-Type': 'application/json' }
+  if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`
+  }
+  return headers
+}
+
 /**
  * Generic Fetchers
  */
 
 export async function getJson(path) {
-  const response = await fetch(`${apiBaseUrl}${path}`)
+  const response = await fetch(`${apiBaseUrl}${path}`, {
+    headers: getHeaders()
+  })
   if (!response.ok) {
     throw new Error(`GET ${path} failed with status ${response.status}`)
   }
@@ -17,11 +38,12 @@ export async function getJson(path) {
 export async function postJson(path, payload) {
   const response = await fetch(`${apiBaseUrl}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getHeaders(),
     body: JSON.stringify(payload)
   })
   if (!response.ok) {
-    throw new Error(`POST ${path} failed with status ${response.status}`)
+    const err = await response.json().catch(() => ({}))
+    throw new Error(err.detail || `POST ${path} failed with status ${response.status}`)
   }
   return response.json()
 }
@@ -29,13 +51,34 @@ export async function postJson(path, payload) {
 export async function putJson(path, payload) {
   const response = await fetch(`${apiBaseUrl}${path}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getHeaders(),
     body: JSON.stringify(payload)
   })
   if (!response.ok) {
-    throw new Error(`PUT ${path} failed with status ${response.status}`)
+    const err = await response.json().catch(() => ({}))
+    throw new Error(err.detail || `PUT ${path} failed with status ${response.status}`)
   }
   return response.json()
+}
+
+/**
+ * Auth
+ */
+
+export async function login(username, password) {
+  const data = await postJson('/api/auth/login', { username, password })
+  setAuthToken(data.accessToken)
+  return data
+}
+
+export async function signup(username, password) {
+  const data = await postJson('/api/auth/signup', { username, password })
+  setAuthToken(data.accessToken)
+  return data
+}
+
+export function logout() {
+  setAuthToken(null)
 }
 
 /**
