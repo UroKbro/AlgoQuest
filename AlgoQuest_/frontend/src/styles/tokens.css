@@ -1,0 +1,20 @@
+:root {
+  color-scheme: dark;
+  --bg: #050505;
+  --bg-elevated: #0b0b0f;
+  --panel: rgba(255, 255, 255, 0.08);
+  --panel-border: rgba(255, 255, 255, 0.12);
+  --text: #f5f7fb;
+  --muted: rgba(245, 247, 251, 0.72);
+  --danger: #fb7185;
+  --amber: #f59e0b;
+  --cyan: #00f2ff;
+  --purple: #a855f7;
+  --emerald: #10b981;
+  --neon-intensity: 0.72;
+  --sound-volume: 0.4;
+  --motion-blur: 24px;
+  --radius-lg: 28px;
+  --radius-md: 20px;
+  --shadow-panel: 0 18px 60px rgba(0, 0, 0, 0.35);
+}
