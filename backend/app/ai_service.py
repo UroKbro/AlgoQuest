@@ -53,7 +53,7 @@ class GeminiAIService:
         import google.generativeai as genai
 
         genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel("gemini-2.0-flash")
+        self.model = genai.GenerativeModel("gemini-1.5-flash")
 
     def _generate_content(self, prompt: str):
         try:
@@ -62,7 +62,7 @@ class GeminiAIService:
             log_warning(
                 "Gemini request failed, using mock fallback",
                 error=str(exc),
-                model="gemini-2.0-flash",
+                model="gemini-1.5-flash",
             )
             return None
 
@@ -169,7 +169,7 @@ def get_ai_provider_status() -> dict[str, object]:
     return {
         "provider": "gemini",
         "configured": True,
-        "model": "gemini-2.0-flash",
+        "model": "gemini-1.5-flash",
     }
 
 

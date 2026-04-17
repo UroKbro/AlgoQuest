@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import { useLocation } from 'react-router-dom'
 import { fetchAlgorithms, aiSocraticAnchor } from '../api'
 import { realmConfig } from '../appConfig'
@@ -6,6 +6,7 @@ import PageHeader from '../components/PageHeader'
 import Editor from 'react-simple-code-editor'
 import Prism from 'prismjs'
 import 'prismjs/components/prism-python'
+import { motion, AnimatePresence } from 'framer-motion'
 
 const graphNodes = {
   A: { x: 80, y: 70 },
@@ -543,6 +544,10 @@ export default function LaboratoryPage() {
   const [customCodes, setCustomCodes] = useState({})
   const [aiHint, setAiHint] = useState({ status: 'idle', hint: '', anchor: null })
   const [playbackSpeed, setPlaybackSpeed] = useState(1100)
+  const [isLooping, setIsLooping] = useState(false)
+  const [isTraceCollapsed, setIsTraceCollapsed] = useState(false)
+  const [exploredAlgorithms, setExploredAlgorithms] = useState(new Set())
+  const traceListRef = useRef(null)
   const location = useLocation()
 
   useEffect(() => {
@@ -603,7 +608,16 @@ export default function LaboratoryPage() {
   useEffect(() => {
     setStepIndex(0)
     setIsPlaying(false)
+    setExploredAlgorithms(prev => new Set([...prev, activeSlug]))
   }, [activeSlug])
+
+  // Auto-scroll trace feed
+  useEffect(() => {
+    if (traceListRef.current) {
+      const activeItem = traceListRef.current.querySelector('.trace-item.is-active')
+      activeItem?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }
+  }, [stepIndex])
 
   const canonicalCode = useMemo(() => visualizer.codeLines.join('\n'), [visualizer.codeLines])
   const activeCode = customCodes[activeSlug] ?? canonicalCode
@@ -621,6 +635,9 @@ export default function LaboratoryPage() {
     const intervalId = window.setInterval(() => {
       setStepIndex((current) => {
         if (current >= visualizer.snapshots.length - 1) {
+          if (isLooping) {
+            return 0
+          }
           window.clearInterval(intervalId)
           setIsPlaying(false)
           return current
@@ -633,14 +650,14 @@ export default function LaboratoryPage() {
     return () => {
       window.clearInterval(intervalId)
     }
-  }, [isPlaying, visualizer.snapshots.length, playbackSpeed])
+  }, [isPlaying, visualizer.snapshots.length, playbackSpeed, isLooping])
 
   return (
     <>
       <PageHeader
         eyebrow={realm.eyebrow}
         title={realm.name}
-        description="The Lab now contains a real algorithm visualizer with playback, timeline scrubbing, discovery anchors, and step-linked pseudocode."
+        description="Deep diagnostic analysis of foundation algorithms. 60FPS visualization with time-travel scrubbing, discovery anchors, and live pseudocode sync."
         accent={realm.accent}
       />
 
@@ -659,28 +676,52 @@ export default function LaboratoryPage() {
 
       {state.status === 'ready' ? (
         <>
-          <section className="glass-panel lab-picker-panel">
+          <motion.section 
+            className="glass-panel lab-picker-panel"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
             <div className="panel-heading">
               <div>
                 <p className="card-tag text-cyan">Algorithm Set</p>
                 <h3>Choose a study track</h3>
               </div>
-              <span className="mini-pill">Telemetry Dock</span>
+              <span className="mini-pill">{exploredAlgorithms.size}/{supportedItems.length} explored</span>
             </div>
             <div className="algorithm-picker">
-              {supportedItems.map((algorithm) => (
-                <button
-                  key={algorithm.slug}
-                  type="button"
-                  className={`picker-button${algorithm.slug === activeSlug ? ' is-active' : ''}`}
-                  onClick={() => setSelectedSlug(algorithm.slug)}
-                >
-                  <strong>{algorithm.name}</strong>
-                  <span>{algorithm.summary}</span>
-                </button>
-              ))}
+              {supportedItems.map((algorithm) => {
+                const viz = algorithmVisualizers[algorithm.slug]
+                const isExplored = exploredAlgorithms.has(algorithm.slug)
+                return (
+                  <motion.button
+                    key={algorithm.slug}
+                    type="button"
+                    className={`picker-button${algorithm.slug === activeSlug ? ' is-active' : ''}`}
+                    onClick={() => setSelectedSlug(algorithm.slug)}
+                    whileHover={{ scale: 1.02, y: -2 }}
+                    whileTap={{ scale: 0.98 }}
+                    transition={{ duration: 0.15 }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%' }}>
+                      <strong>{algorithm.name}</strong>
+                      {isExplored && <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--emerald)', flexShrink: 0, marginTop: '6px' }} />}
+                    </div>
+                    <span>{algorithm.summary}</span>
+                    {viz?.complexity && (
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                        <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '6px', background: 'rgba(0,242,255,0.1)', color: 'var(--cyan)' }}>
+                          T: {viz.complexity.time}
+                        </span>
+                        <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '6px', background: 'rgba(168,85,247,0.1)', color: 'var(--purple)' }}>
+                          S: {viz.complexity.space}
+                        </span>
+                      </div>
+                    )}
+                  </motion.button>
+                )
+              })}
             </div>
-          </section>
+          </motion.section>
 
           <section className="laboratory-layout">
             <article className="glass-panel visualizer-panel">

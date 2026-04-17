@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter, HTTPException
 
 from ..content import ALGORITHMS, LESSONS, PROJECT_BLUEPRINTS, REALMS, SIMULATIONS
@@ -14,12 +16,12 @@ async def list_realms() -> dict[str, list[dict[str, str]]]:
 
 
 @router.get("/lessons")
-async def list_lessons() -> dict[str, list[dict[str, str]]]:
+async def list_lessons() -> dict[str, list[dict[str, Any]]]:
     return {"items": LESSONS}
 
 
 @router.get("/lessons/{slug}")
-async def get_lesson(slug: str) -> dict[str, dict[str, str]]:
+async def get_lesson(slug: str) -> dict[str, dict[str, Any]]:
     lesson = next((item for item in LESSONS if item["slug"] == slug), None)
     if lesson is None:
         raise HTTPException(status_code=404, detail="Lesson not found")

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import { NavLink } from 'react-router-dom'
 import Editor from 'react-simple-code-editor'
 import Prism from 'prismjs'
@@ -8,6 +8,7 @@ import { fetchLessons, aiReviewLogic, fetchLessonProgressList, updateLessonProgr
 import { realmConfig } from '../appConfig'
 import PageHeader from '../components/PageHeader'
 import { getPyodide, runPythonCode } from '../runtime/pyodide'
+import { motion, AnimatePresence } from 'framer-motion'
 
 const starterCodeByLesson = {
   'memory-boxes': '# Create a score variable and assign it 7\nscore = 7\n\n# Add 3 to the current score\nscore = score + 3\n\n# Print the final score\nprint(score)',
@@ -131,6 +132,8 @@ export default function DojoPage({ onNotify }) {
   const [progressState, setProgressState] = useState({ completedLessons: [], lastLessonSlug: '' })
   const [aiState, setAiState] = useState({ status: 'idle', critique: '', score: 0 })
   const [quizState, setQuizState] = useState({ status: 'hidden', selectedAnswer: null, isCorrect: null })
+  const [executionStats, setExecutionStats] = useState({ runs: 0, lastExecutionTime: 0, totalRuns: 0 })
+  const [copiedCode, setCopiedCode] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -249,11 +252,21 @@ export default function DojoPage({ onNotify }) {
     }
   }, [])
 
+  const handleCopyCode = useCallback(() => {
+    navigator.clipboard.writeText(activeCode).then(() => {
+      setCopiedCode(true)
+      setTimeout(() => setCopiedCode(false), 2000)
+    })
+  }, [activeCode])
+
   async function handleRunCode() {
     setRuntimeState((current) => ({ ...current, status: 'running', stdout: '', stderr: '', message: '' }))
+    const startTime = performance.now()
 
     try {
       const result = await runPythonCode(activeCode)
+      const elapsed = Math.round(performance.now() - startTime)
+      setExecutionStats(prev => ({ runs: prev.runs + 1, lastExecutionTime: elapsed, totalRuns: prev.totalRuns + 1 }))
       const isSuccess = result.status === 'ok' && !result.stderr
 
       if (selectedLesson && isSuccess) {
@@ -334,23 +347,80 @@ export default function DojoPage({ onNotify }) {
 
   const completedSet = new Set(progressState.completedLessons)
 
+  const totalLessons = state.items.length
+  const completedCount = progressState.completedLessons.length
+  const progressPercent = totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0
+
   return (
     <>
       <PageHeader
         eyebrow={realm.eyebrow}
         title={realm.name}
-        description="The Dojo now has a live lesson rail and a workspace shell ready for the editor, Pyodide runtime, and learning visuals."
+        description="Master CS fundamentals and Python logic in a structured arena. Practice, run, review, and level up."
         accent={realm.accent}
       />
+
+      {/* Quick Stats Bar */}
+      <motion.section 
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="dojo-stats-bar"
+        style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px', marginBottom: '20px' }}
+      >
+        <div className="glass-panel" style={{ padding: '14px 18px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(245,158,11,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem' }}>📚</div>
+          <div>
+            <div style={{ fontSize: '0.7rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Completed</div>
+            <div style={{ fontSize: '1.3rem', fontWeight: 'bold', color: 'var(--amber)' }}>{completedCount}/{totalLessons}</div>
+          </div>
+        </div>
+        <div className="glass-panel" style={{ padding: '14px 18px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(0,242,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem' }}>▶</div>
+          <div>
+            <div style={{ fontSize: '0.7rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Code Runs</div>
+            <div style={{ fontSize: '1.3rem', fontWeight: 'bold', color: 'var(--cyan)' }}>{executionStats.totalRuns}</div>
+          </div>
+        </div>
+        <div className="glass-panel" style={{ padding: '14px 18px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(168,85,247,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem' }}>⚡</div>
+          <div>
+            <div style={{ fontSize: '0.7rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Last Run</div>
+            <div style={{ fontSize: '1.3rem', fontWeight: 'bold', color: 'var(--purple)' }}>{executionStats.lastExecutionTime}ms</div>
+          </div>
+        </div>
+        <div className="glass-panel" style={{ padding: '14px 18px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(16,185,129,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem' }}>🎯</div>
+          <div>
+            <div style={{ fontSize: '0.7rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Progress</div>
+            <div style={{ fontSize: '1.3rem', fontWeight: 'bold', color: 'var(--emerald)' }}>{progressPercent}%</div>
+          </div>
+        </div>
+      </motion.section>
 
       <section className="dojo-layout">
         <aside className="glass-panel lesson-rail">
           <div className="panel-heading">
             <div>
-              <p className="card-tag">Path to Black Belt</p>
+              <p className="card-tag text-amber">Path to Black Belt</p>
               <h3>Lesson Rail</h3>
             </div>
-            <span className="mini-pill">Live API</span>
+            <span className="mini-pill">{completedCount}/{totalLessons}</span>
+          </div>
+
+          {/* Progress Bar */}
+          <div style={{ margin: '0 0 16px', padding: '0' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '6px' }}>
+              <span>Mastery Progress</span>
+              <span style={{ color: 'var(--amber)', fontWeight: '600' }}>{progressPercent}%</span>
+            </div>
+            <div style={{ height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
+              <motion.div 
+                initial={{ width: 0 }}
+                animate={{ width: `${progressPercent}%` }}
+                transition={{ duration: 1, ease: 'easeOut' }}
+                style={{ height: '100%', background: 'linear-gradient(90deg, var(--amber), #f59e0b)', borderRadius: '3px' }}
+              />
+            </div>
           </div>
 
           {state.status === 'loading' ? <p className="status-copy">Loading lessons...</p> : null}
@@ -363,70 +433,103 @@ export default function DojoPage({ onNotify }) {
           ) : null}
 
             {state.status === 'ready'
-              ? Object.entries(groupedLessons).map(([tier, lessons]) => (
-                  <section key={tier} className="lesson-group">
-                  <p className="group-label">{tier}</p>
-                  <div className="lesson-stack">
-                    {lessons.map((lesson) => {
-                      const isActive = selectedLesson?.slug === lesson.slug
-                      const isCompleted = completedSet.has(lesson.slug)
+              ? Object.entries(groupedLessons).map(([tier, lessons]) => {
+                  const tierCompleted = lessons.filter(l => completedSet.has(l.slug)).length
+                  return (
+                    <section key={tier} className="lesson-group">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <p className="group-label">{tier}</p>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--muted)' }}>{tierCompleted}/{lessons.length}</span>
+                    </div>
+                    <div className="lesson-stack">
+                      {lessons.map((lesson) => {
+                        const isActive = selectedLesson?.slug === lesson.slug
+                        const isCompleted = completedSet.has(lesson.slug)
 
-                      return (
-                        <button
-                          key={lesson.slug}
-                          type="button"
-                          className={`lesson-item${isActive ? ' is-active' : ''}`}
-                          onClick={() => setSelectedLessonSlug(lesson.slug)}
-                        >
-                          <strong>
-                            {lesson.title}
-                            {isCompleted ? <span className="lesson-complete-pill">Done</span> : null}
-                          </strong>
-                          <span>{lesson.summary}</span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                </section>
-              ))
+                        return (
+                          <motion.button
+                            key={lesson.slug}
+                            type="button"
+                            className={`lesson-item${isActive ? ' is-active' : ''}`}
+                            onClick={() => setSelectedLessonSlug(lesson.slug)}
+                            whileHover={{ x: 4 }}
+                            transition={{ duration: 0.15 }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ 
+                                width: '8px', height: '8px', borderRadius: '50%', flexShrink: 0,
+                                background: isCompleted ? 'var(--emerald)' : isActive ? 'var(--amber)' : 'rgba(255,255,255,0.2)'
+                              }} />
+                              <strong style={{ flex: 1 }}>
+                                {lesson.title}
+                                {isCompleted ? <span className="lesson-complete-pill">Done</span> : null}
+                              </strong>
+                            </div>
+                            <span>{lesson.summary}</span>
+                          </motion.button>
+                        )
+                      })}
+                    </div>
+                  </section>
+                  )
+                })
             : null}
         </aside>
 
         <div className="dojo-workspace">
-          <section className="glass-panel dojo-stage">
+          <motion.section 
+            className="glass-panel dojo-stage"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+          >
             <div className="panel-heading">
               <div>
                 <p className="card-tag text-amber">The Stage</p>
                 <h3>{selectedLesson?.title ?? 'Choose a lesson'}</h3>
               </div>
-              <span className="mini-pill">Memory Visuals</span>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <span className="mini-pill" style={{ background: 'rgba(245,158,11,0.15)', color: 'var(--amber)' }}>{selectedLesson?.tier ?? 'Lesson'}</span>
+                <span className="mini-pill">Memory Visuals</span>
+              </div>
             </div>
             <p className="status-copy">
               {selectedLesson?.summary ?? 'Pick a lesson from the rail to populate the stage.'}
             </p>
 
-            <div className="stage-preview" aria-hidden="true">
-              <div className="memory-box">
+            <div className="stage-preview" aria-hidden="true" style={{ position: 'relative' }}>
+              <motion.div 
+                className="memory-box"
+                whileHover={{ scale: 1.05 }}
+                transition={{ type: 'spring', stiffness: 300 }}
+              >
                 <small>{stageModel.primaryLabel}</small>
                 <strong>{stageModel.primaryValue}</strong>
-              </div>
+              </motion.div>
               <div className="pointer-line" />
-              <div className="memory-box ghost-box">
+              <motion.div 
+                className="memory-box ghost-box"
+                whileHover={{ scale: 1.05 }}
+                transition={{ type: 'spring', stiffness: 300 }}
+              >
                 <small>{stageModel.secondaryLabel}</small>
                 <strong>{stageModel.secondaryValue}</strong>
-              </div>
+              </motion.div>
             </div>
 
-              <div className="dojo-stage-notes">
-                <span className="mini-pill">{selectedLesson?.tier ?? 'Lesson'}</span>
+              <div className="dojo-stage-notes" style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginTop: '20px', padding: '16px', background: 'rgba(255, 255, 255, 0.03)', borderRadius: '12px' }}>
+                {selectedLesson && completedSet.has(selectedLesson.slug) && (
+                  <span className="mini-pill" style={{ background: 'rgba(16,185,129,0.15)', color: 'var(--emerald)' }}>Completed</span>
+                )}
                 <span className="mini-pill">Visual-first metaphor</span>
                 {progressState.lastLessonSlug ? <span className="mini-pill">Last run: {progressState.lastLessonSlug}</span> : null}
+                {executionStats.lastExecutionTime > 0 && <span className="mini-pill">{executionStats.lastExecutionTime}ms</span>}
               </div>
-            </section>
+            </motion.section>
 
           <section className="content-grid dojo-support-grid">
             {selectedLesson?.content && (
-              <article className="glass-panel content-card dojo-explanation-card">
+              <article className="glass-panel content-card dojo-explanation-card" style={{ gridColumn: '1 / -1' }}>
                 <div className="panel-heading">
                   <div>
                     <p className="card-tag text-cyan">Concept</p>
@@ -448,18 +551,24 @@ export default function DojoPage({ onNotify }) {
                 <span className="mini-pill">{runtimeState.status}</span>
               </div>
 
-              <div className="transport-row">
+              <div className="transport-row" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
                 <button
                   type="button"
                   className="action-button action-button-primary"
                   onClick={handleRunCode}
                   disabled={runtimeState.status === 'booting' || runtimeState.status === 'running' || !selectedLesson}
                 >
-                  {runtimeState.status === 'running' ? 'Running...' : 'Run Lesson'}
+                  {runtimeState.status === 'running' ? '⏳ Running...' : '▶ Run Lesson'}
                 </button>
                 <button type="button" className="action-button" onClick={handleResetCode} disabled={!selectedLesson}>
-                  Reset Snippet
+                  ↺ Reset
                 </button>
+                <button type="button" className="action-button" onClick={handleCopyCode} disabled={!selectedLesson}>
+                  {copiedCode ? '✓ Copied' : '⎘ Copy'}
+                </button>
+                <span style={{ marginLeft: 'auto', fontSize: '0.75rem', color: 'var(--muted)' }}>
+                  {activeCode.split('\n').length} lines · {activeCode.length} chars
+                </span>
               </div>
 
               <div className="editor-surface">
@@ -477,6 +586,7 @@ export default function DojoPage({ onNotify }) {
                   textareaClassName="code-editor-textarea"
                   preClassName="code-editor-pre"
                   className="code-editor"
+                  style={{ minHeight: '250px', backgroundColor: 'rgba(5, 5, 5, 0.56)', borderRadius: '18px', border: '1px solid rgba(255, 255, 255, 0.08)' }}
                 />
               </div>
 
@@ -486,7 +596,26 @@ export default function DojoPage({ onNotify }) {
                     <p className="card-tag text-cyan">Logic Engine</p>
                     <h3>Runtime Output</h3>
                   </div>
-                  <span className="mini-pill">Pyodide</span>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    {executionStats.lastExecutionTime > 0 && (
+                      <span className="mini-pill" style={{ background: 'rgba(16,185,129,0.15)', color: 'var(--emerald)' }}>
+                        {executionStats.lastExecutionTime}ms
+                      </span>
+                    )}
+                    <span className="mini-pill" style={{ 
+                      background: runtimeState.status === 'ready' ? 'rgba(16,185,129,0.15)' : 
+                                  runtimeState.status === 'error' ? 'rgba(239,68,68,0.15)' :
+                                  runtimeState.status === 'running' ? 'rgba(245,158,11,0.15)' : 'rgba(255,255,255,0.05)',
+                      color: runtimeState.status === 'ready' ? 'var(--emerald)' :
+                             runtimeState.status === 'error' ? '#ef4444' :
+                             runtimeState.status === 'running' ? 'var(--amber)' : 'var(--muted)'
+                    }}>
+                      {runtimeState.status === 'ready' ? '● Online' : 
+                       runtimeState.status === 'booting' ? '◌ Booting' :
+                       runtimeState.status === 'running' ? '◉ Running' :
+                       runtimeState.status === 'error' ? '● Error' : '○ Idle'}
+                    </span>
+                  </div>
                 </div>
                 <p className="status-copy runtime-message">
                   {runtimeState.status === 'booting'
@@ -495,72 +624,215 @@ export default function DojoPage({ onNotify }) {
                 </p>
                 <div className="runtime-grid">
                   <div>
-                    <p className="group-label">stdout</p>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <p className="group-label">stdout</p>
+                      {runtimeState.stdout && (
+                        <button onClick={() => setRuntimeState(c => ({ ...c, stdout: '' }))} 
+                          style={{ fontSize: '0.7rem', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                          Clear
+                        </button>
+                      )}
+                    </div>
                     <pre className="code-surface runtime-surface"><code>{runtimeState.stdout || '# no output yet'}</code></pre>
                   </div>
                   <div>
-                    <p className="group-label">stderr</p>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <p className="group-label">stderr</p>
+                      {runtimeState.stderr && (
+                        <button onClick={() => setRuntimeState(c => ({ ...c, stderr: '' }))} 
+                          style={{ fontSize: '0.7rem', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                          Clear
+                        </button>
+                      )}
+                    </div>
                     <pre className="code-surface runtime-surface runtime-error"><code>{runtimeState.stderr || '# no errors'}</code></pre>
                   </div>
                 </div>
               </section>
 
-              {aiState.status !== 'idle' && (
-                <section className="glass-panel critique-panel accent-purple" style={{ marginTop: '24px' }}>
-                  <div className="panel-heading">
-                    <div>
-                      <p className="card-tag text-purple">AI Logic Critique</p>
-                      <h3>Sensei Response</h3>
+              <AnimatePresence>
+                {quizState.status === 'visible' && selectedLesson?.quiz && (
+                  <motion.section 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="glass-panel critique-panel accent-emerald" 
+                    style={{ marginTop: '24px' }}
+                  >
+                    <div className="panel-heading">
+                      <div>
+                        <p className="card-tag text-emerald">Knowledge Check</p>
+                        <h3>Lesson Quiz</h3>
+                      </div>
+                      <AnimatePresence>
+                        {quizState.isCorrect !== null && (
+                          <motion.span 
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            className="mini-pill"
+                            style={{ 
+                              background: quizState.isCorrect ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
+                              color: quizState.isCorrect ? 'var(--emerald)' : '#ef4444'
+                            }}
+                          >
+                            {quizState.isCorrect ? '✓ Correct' : '✗ Incorrect'}
+                          </motion.span>
+                        )}
+                      </AnimatePresence>
                     </div>
-                    {aiState.score > 0 && <span className="mini-pill">{aiState.score}/100</span>}
-                  </div>
-                  <div className="status-copy markdown-critique">
-                    {aiState.status === 'requesting' ? (
-                      <p>Sensei is analyzing your logic rituals...</p>
-                    ) : (
-                      <ReactMarkdown>{aiState.critique}</ReactMarkdown>
+                    <div className="status-copy" style={{ marginBottom: '16px' }}>
+                      <strong>{selectedLesson.quiz.question}</strong>
+                    </div>
+                    <div className="transport-row" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                      {selectedLesson.quiz.options.map((option, idx) => {
+                        const isSelected = quizState.selectedAnswer === option
+                        const isCorrectAnswer = option === selectedLesson.quiz.answer
+                        let btnStyle = {}
+                        if (quizState.selectedAnswer !== null) {
+                          if (isCorrectAnswer) {
+                            btnStyle = { background: 'rgba(16,185,129,0.2)', borderColor: 'var(--emerald)', color: 'var(--emerald)' }
+                          } else if (isSelected && !quizState.isCorrect) {
+                            btnStyle = { background: 'rgba(239,68,68,0.2)', borderColor: '#ef4444', color: '#ef4444' }
+                          }
+                        }
+                        return (
+                          <motion.button
+                            key={idx}
+                            type="button"
+                            className="action-button"
+                            onClick={() => handleQuizSubmit(option)}
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            style={{ margin: 0, flex: '1 1 calc(50% - 8px)', transition: 'all 0.2s ease', ...btnStyle }}
+                            disabled={quizState.selectedAnswer !== null}
+                          >
+                            {option}
+                          </motion.button>
+                        )
+                      })}
+                    </div>
+                    {quizState.isCorrect !== null && (
+                      <motion.p 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        style={{ marginTop: '12px', fontSize: '0.85rem', color: quizState.isCorrect ? 'var(--emerald)' : 'var(--muted)' }}
+                      >
+                        {quizState.isCorrect 
+                          ? 'Excellent! You\'ve demonstrated understanding of this concept.' 
+                          : `The correct answer is: ${selectedLesson.quiz.answer}. Review the lesson content and try again.`}
+                      </motion.p>
                     )}
-                  </div>
-                </section>
-              )}
+                  </motion.section>
+                )}
+              </AnimatePresence>
+
+              <AnimatePresence>
+                {aiState.status !== 'idle' && (
+                  <motion.section 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="glass-panel critique-panel accent-purple" 
+                    style={{ marginTop: '24px' }}
+                  >
+                    <div className="panel-heading">
+                      <div>
+                        <p className="card-tag text-purple">AI Logic Critique</p>
+                        <h3>Sensei Response</h3>
+                      </div>
+                      {aiState.score > 0 && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <svg width="40" height="40" viewBox="0 0 40 40">
+                            <circle cx="20" cy="20" r="16" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="3" />
+                            <circle cx="20" cy="20" r="16" fill="none" stroke="var(--purple)" strokeWidth="3" strokeLinecap="round"
+                              strokeDasharray={`${(aiState.score / 100) * 100.5} 100.5`}
+                              transform="rotate(-90 20 20)" />
+                            <text x="20" y="20" textAnchor="middle" dy="0.35em" fill="var(--purple)" fontSize="10" fontWeight="bold">
+                              {aiState.score}
+                            </text>
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+                    <div className="status-copy markdown-critique">
+                      {aiState.status === 'requesting' ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '20px 0' }}>
+                          <div style={{ width: '20px', height: '20px', border: '2px solid rgba(168,85,247,0.3)', borderTopColor: 'var(--purple)', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                          <p>Sensei is analyzing your logic rituals...</p>
+                        </div>
+                      ) : (
+                        <ReactMarkdown>{aiState.critique}</ReactMarkdown>
+                      )}
+                    </div>
+                  </motion.section>
+                )}
+              </AnimatePresence>
             </article>
 
             <article className="glass-panel content-card dojo-side-card">
               <div className="panel-heading">
                 <div>
-                  <p className="card-tag text-cyan">Sensei Assistance</p>
-                  <h3>Dojo Critique</h3>
+                  <p className="card-tag text-purple">Sensei Assistance</p>
+                  <h3>AI Critique</h3>
                 </div>
               </div>
               <p className="status-copy">
                 Request an instant logical critique of your current implementation.
               </p>
-              <button 
+              <motion.button 
                 type="button" 
                 className="action-button action-button-primary"
                 onClick={handleAIReview}
                 disabled={aiState.status === 'requesting' || !selectedLesson}
                 style={{ width: '100%', marginBottom: '20px' }}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
               >
-                {aiState.status === 'requesting' ? 'Analyzing...' : 'Trigger Review Logic'}
-              </button>
+                {aiState.status === 'requesting' ? '⏳ Analyzing...' : '🧠 Trigger Review Logic'}
+              </motion.button>
+
+              {/* Lesson Completion Status */}
+              <div style={{ padding: '16px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', marginBottom: '20px' }}>
+                <div className="panel-heading" style={{ marginBottom: '12px' }}>
+                  <div>
+                    <p className="card-tag text-emerald">Lesson Status</p>
+                    <h3 style={{ fontSize: '1.1rem' }}>Current Progress</h3>
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gap: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                    <span style={{ color: 'var(--muted)' }}>Status</span>
+                    <span style={{ color: selectedLesson && completedSet.has(selectedLesson?.slug) ? 'var(--emerald)' : 'var(--amber)' }}>
+                      {selectedLesson && completedSet.has(selectedLesson?.slug) ? '✓ Completed' : '◌ In Progress'}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                    <span style={{ color: 'var(--muted)' }}>Code Runs</span>
+                    <span style={{ color: 'var(--cyan)' }}>{executionStats.runs}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                    <span style={{ color: 'var(--muted)' }}>Last Execution</span>
+                    <span style={{ color: 'var(--purple)' }}>{executionStats.lastExecutionTime > 0 ? `${executionStats.lastExecutionTime}ms` : '--'}</span>
+                  </div>
+                </div>
+              </div>
 
               <div className="panel-heading">
                 <div>
                   <p className="card-tag text-cyan">Weekly Gate</p>
-                  <h3>Assessment Hook</h3>
+                  <h3>Assessment</h3>
                 </div>
-                <span className="mini-pill">Upcoming</span>
+                <span className="mini-pill" style={{ background: 'rgba(0,242,255,0.1)', color: 'var(--cyan)' }}>Sunday</span>
               </div>
-              <p>
-                Reserve this card for the Sunday gate flow and adaptive lesson reprioritization.
+              <p className="status-copy" style={{ marginBottom: '12px' }}>
+                3 logic puzzles + 2 code snippets. Failures auto-prioritize weak lessons.
               </p>
               {selectedLesson && completedSet.has(selectedLesson.slug) ? (
-                <NavLink to="/laboratory" className="inline-link">
-                  Transfer this lesson into the Laboratory
+                <NavLink to="/laboratory" className="action-button" style={{ display: 'block', textAlign: 'center', textDecoration: 'none', background: 'rgba(0,242,255,0.1)', border: '1px solid rgba(0,242,255,0.2)', color: 'var(--cyan)', borderRadius: '12px', padding: '10px' }}>
+                  Transfer to Laboratory →
                 </NavLink>
               ) : (
-                <p className="status-copy">Complete the active lesson run to unlock the Laboratory handoff.</p>
+                <p className="status-copy" style={{ fontSize: '0.8rem' }}>Complete the active lesson to unlock Laboratory handoff.</p>
               )}
             </article>
           </section>

@@ -66,16 +66,18 @@ _previous_stderr = sys.stderr
 sys.stdout = _stdout
 sys.stderr = _stderr
 
+_result_dict = {}
+
 try:
     exec(__algoquest_code, _globals)
-    {
+    _result_dict = {
         "status": "ok",
         "stdout": _stdout.getvalue(),
         "stderr": _stderr.getvalue(),
     }
 except Exception:
     traceback.print_exc(file=_stderr)
-    {
+    _result_dict = {
         "status": "error",
         "stdout": _stdout.getvalue(),
         "stderr": _stderr.getvalue(),
@@ -83,10 +85,15 @@ except Exception:
 finally:
     sys.stdout = _previous_stdout
     sys.stderr = _previous_stderr
+
+_result_dict
   `)
 
-  const result = resultProxy?.toJs ? resultProxy.toJs({ dict_converter: Object.fromEntries }) : resultProxy
-  resultProxy?.destroy?.()
+  let result = resultProxy
+  if (resultProxy?.toJs) {
+    result = resultProxy.toJs({ dict_converter: Object.fromEntries })
+    resultProxy.destroy()
+  }
   pyodide.globals.delete('__algoquest_code')
-  return result
+  return result || { status: 'error', stdout: '', stderr: 'Unknown engine failure' }
 }
