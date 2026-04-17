@@ -26,6 +26,8 @@ class Settings:
         self.database_url = os.getenv("ALGO_DATABASE_URL", "sqlite:///./algoquest.db")
         self.app_secret = os.getenv("ALGO_APP_SECRET", "dev-secret")
         self.gemini_api_key = os.getenv("GEMINI_API_KEY")
+        self.admin_username = os.getenv("ALGO_ADMIN_USERNAME", "admin")
+        self.admin_password = os.getenv("ALGO_ADMIN_PASSWORD", "admin123456")
 
 
 settings = Settings()

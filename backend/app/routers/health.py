@@ -2,10 +2,16 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
+from ..ai_service import get_ai_provider_status
+
 
 router = APIRouter(tags=["health"])
 
 
 @router.get("/health")
-async def health_check() -> dict[str, str]:
-    return {"status": "ok", "service": "algoquest-backend"}
+async def health_check() -> dict[str, object]:
+    return {
+        "status": "ok",
+        "service": "algoquest-backend",
+        "ai": get_ai_provider_status(),
+    }

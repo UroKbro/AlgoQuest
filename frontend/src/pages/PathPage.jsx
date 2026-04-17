@@ -63,42 +63,47 @@ export default function PathPage() {
   const realm = realmConfig.path
   const [data, setData] = useState(null)
   const [status, setStatus] = useState('loading')
+  const [message, setMessage] = useState('')
 
   useEffect(() => {
     fetchPathAnalytics()
       .then(res => {
         setData(res)
         setStatus('ready')
+        setMessage('')
       })
-      .catch(() => {
+      .catch((error) => {
         // Fallback mock
         setData({
-          mastery: {
-            Complexity: 78,
-            Sorting: 92,
-            Recursion: 45,
-            Graphs: 30,
-            Strings: 85,
-            Lists: 95
+          weeklyFocus: 'Recursive Depth',
+          strengths: ['Loop consistency', 'Array scanning', 'State cleanup'],
+          frictionPoints: ['Nested recursion', 'Snapshot comparison', 'Graph traversal setup'],
+          masteryRadar: {
+            Logic: 78,
+            Syntax: 72,
+            Efficiency: 61,
+            Projects: 44,
+            Speed: 67,
           },
-          weeklyBreakdown: [
-            { day: 'Mon', focus: 'Sorting', status: 'High' },
-            { day: 'Tue', focus: 'Complexity', status: 'Med' },
-            { day: 'Wed', focus: 'Graphs', status: 'Inc' },
-            { day: 'Thu', focus: 'Recursion', status: 'Med' },
-            { day: 'Fri', focus: 'Sorting', status: 'Med' }
-          ],
-          frictionPoints: [
-            'Dijkstra priority queue management',
-            'Recursion depth limits in DFS',
-            'Big O of nested loop sets'
-          ]
+          weeklyGate: {
+            score: 78,
+            strengths: ['Loop consistency', 'Array scanning'],
+            frictionPoints: ['Nested recursion', 'Snapshot comparison'],
+          },
         })
         setStatus('ready')
+        setMessage(error.message)
       })
   }, [])
 
   if (status === 'loading') return <p>Calibrating Mastery Radar...</p>
+
+  const radarData = data?.masteryRadar ?? {}
+  const gateScore = data?.weeklyGate?.score ?? 'n/a'
+  const strengths = data?.strengths ?? []
+  const frictionPoints = data?.frictionPoints ?? []
+  const weeklyGateStrengths = data?.weeklyGate?.strengths ?? []
+  const weeklyGateFriction = data?.weeklyGate?.frictionPoints ?? []
 
   return (
     <>
@@ -117,9 +122,20 @@ export default function PathPage() {
                     <h3>Category Signal</h3>
                 </div>
                 <span className="mini-pill">Calibrated</span>
-            </div>
-            <div className="radar-stage">
-                <MasteryRadar data={data.mastery} />
+             </div>
+             <div className="radar-stage">
+                <MasteryRadar data={radarData} />
+             </div>
+
+            <div className="path-insight-strip">
+              <div className="mini-metric-card">
+                <span className="group-label">Weekly focus</span>
+                <strong>{data.weeklyFocus}</strong>
+              </div>
+              <div className="mini-metric-card">
+                <span className="group-label">Gate score</span>
+                <strong>{gateScore}</strong>
+              </div>
             </div>
         </article>
 
@@ -127,22 +143,58 @@ export default function PathPage() {
             <article className="glass-panel content-card">
                 <div className="panel-heading">
                     <div>
-                        <p className="card-tag text-cyan">Weekly breakdown</p>
-                        <h3>Logic Focus</h3>
+                        <p className="card-tag text-cyan">Current track</p>
+                        <h3>Weekly Focus</h3>
                     </div>
                 </div>
                 <div className="telem-row-stack">
-                    {data.weeklyBreakdown.map(item => (
-                        <div key={item.day} className="telem-row">
-                            <span className="day-label">{item.day}</span>
-                            <div className="telem-focus">
-                                <strong>{item.focus}</strong>
-                                <small>Session Intensity: {item.status}</small>
-                            </div>
-                            <div className={`telem-dot is-${item.status.toLowerCase()}`} />
-                        </div>
-                    ))}
+                  <div className="telem-row">
+                    <span className="day-label">Now</span>
+                    <div className="telem-focus">
+                      <strong>{data.weeklyFocus}</strong>
+                      <small>Primary concept to reinforce this week</small>
+                    </div>
+                    <div className="telem-dot is-high" />
+                  </div>
+                  {weeklyGateStrengths.map((item) => (
+                    <div key={item} className="telem-row">
+                      <span className="day-label">+</span>
+                      <div className="telem-focus">
+                        <strong>{item}</strong>
+                        <small>Confirmed strength from latest gate</small>
+                      </div>
+                      <div className="telem-dot is-med" />
+                    </div>
+                  ))}
+                  {weeklyGateFriction.map((item) => (
+                    <div key={item} className="telem-row">
+                      <span className="day-label">!</span>
+                      <div className="telem-focus">
+                        <strong>{item}</strong>
+                        <small>Needs more reps in guided practice</small>
+                      </div>
+                      <div className="telem-dot is-inc" />
+                    </div>
+                  ))}
                 </div>
+                {message ? <p className="status-copy">Showing fallback analytics because the API request failed: {message}</p> : null}
+            </article>
+
+            <article className="glass-panel content-card">
+              <div className="panel-heading">
+                <div>
+                  <p className="card-tag text-cyan">Strength profile</p>
+                  <h3>Stable Signals</h3>
+                </div>
+              </div>
+              <ul className="mini-list friction-list">
+                {strengths.map(point => (
+                  <li key={point}>
+                    <div className="friction-icon friction-icon-positive" />
+                    <span>{point}</span>
+                  </li>
+                ))}
+              </ul>
             </article>
 
             <article className="glass-panel content-card muted-card">
@@ -153,7 +205,7 @@ export default function PathPage() {
                 </div>
               </div>
               <ul className="mini-list friction-list">
-                {data.frictionPoints.map(point => (
+                {frictionPoints.map(point => (
                     <li key={point}>
                         <div className="friction-icon" />
                         <span>{point}</span>

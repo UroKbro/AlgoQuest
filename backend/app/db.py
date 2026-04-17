@@ -155,6 +155,8 @@ def init_db() -> None:
 
 
 def _seed_defaults(connection: sqlite3.Connection) -> None:
+    from .auth_utils import get_password_hash
+
     connection.execute(
         """
         INSERT OR IGNORE INTO settings (profile_id, neon_intensity, sound_volume, motion_blur, reduced_motion)
@@ -186,4 +188,12 @@ def _seed_defaults(connection: sqlite3.Connection) -> None:
             json.dumps(["Loop consistency", "Array scanning"]),
             json.dumps(["Nested recursion", "Snapshot comparison"]),
         ),
+    )
+
+    connection.execute(
+        """
+        INSERT OR IGNORE INTO users (username, hashed_password, created_at)
+        VALUES (?, ?, CURRENT_TIMESTAMP)
+        """,
+        (settings.admin_username, get_password_hash(settings.admin_password)),
     )

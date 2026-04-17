@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { realmConfig } from '../appConfig'
 import PageHeader from '../components/PageHeader'
+import { fetchSimulations } from '../api'
 
 class Particle {
   constructor(canvas) {
@@ -52,6 +53,7 @@ class Particle {
 export default function SandboxPage() {
   const realm = realmConfig.sandbox
   const canvasRef = useRef(null)
+  const [simulationState, setSimulationState] = useState({ status: 'loading', items: [], message: '' })
   const [params, setParams] = useState({
     particleCount: 2000,
     stiffness: 42,
@@ -61,6 +63,46 @@ export default function SandboxPage() {
   const [isSabotaged, setIsSabotaged] = useState(false)
   const particles = useRef([])
   const mouse = useRef({ x: null, y: null })
+
+  useEffect(() => {
+    let cancelled = false
+
+    fetchSimulations()
+      .then((data) => {
+        if (!cancelled) {
+          setSimulationState({ status: 'ready', items: data.items ?? [], message: '' })
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setSimulationState({
+            status: 'ready',
+            items: [
+              {
+                slug: 'boids-swarm',
+                name: 'Boids Swarm',
+                scale: '100k-ready',
+                summary: 'Emergent flocking under live cohesion and repulsion tuning.',
+              },
+              {
+                slug: 'raft-failover',
+                name: 'Raft Failover',
+                scale: 'cluster',
+                summary: 'Stress consensus timing with injected leader failures.',
+              },
+            ],
+            message: error.message,
+          })
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const activeSimulation = simulationState.items[0]
+  const chaosLevel = isSabotaged ? 'High' : params.friction > 10 ? 'Moderate' : 'Stable'
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -138,9 +180,12 @@ export default function SandboxPage() {
             <div className="panel-heading">
               <div>
                 <p className="card-tag text-purple">Chaos Panel</p>
-                <h3>System Parameters</h3>
+                <h3>{activeSimulation?.name ?? 'System Parameters'}</h3>
               </div>
+              {activeSimulation?.scale ? <span className="mini-pill">{activeSimulation.scale}</span> : null}
             </div>
+
+            <p className="status-copy">{activeSimulation?.summary ?? 'Tune the active simulation and inspect how the swarm responds in real time.'}</p>
 
             <div className="settings-stack">
               <label className="setting-control">
@@ -196,6 +241,8 @@ export default function SandboxPage() {
                 {isSabotaged ? 'Restore Logic' : 'Structural Sabotage'}
               </button>
             </div>
+
+            {simulationState.message ? <p className="status-copy">Using local simulation metadata because the API request failed: {simulationState.message}</p> : null}
           </article>
 
           <article className="glass-panel content-card">
@@ -207,6 +254,10 @@ export default function SandboxPage() {
               </div>
               <dl className="telemetry-list">
                 <div>
+                  <dt>Active Simulation</dt>
+                  <dd>{activeSimulation?.name ?? 'Boids Swarm'}</dd>
+                </div>
+                <div>
                   <dt>Render Engine</dt>
                   <dd>HTML5 Canvas</dd>
                 </div>
@@ -215,8 +266,12 @@ export default function SandboxPage() {
                   <dd>60</dd>
                 </div>
                 <div>
+                  <dt>Instability</dt>
+                  <dd>{chaosLevel}</dd>
+                </div>
+                <div>
                   <dt>Scale Target</dt>
-                  <dd>100k nodes (Future)</dd>
+                  <dd>{activeSimulation?.scale ?? '100k-ready'}</dd>
                 </div>
               </dl>
           </article>

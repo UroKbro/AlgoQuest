@@ -36,11 +36,18 @@ export async function getJson(path) {
 }
 
 export async function postJson(path, payload) {
-  const response = await fetch(`${apiBaseUrl}${path}`, {
-    method: 'POST',
-    headers: getHeaders(),
-    body: JSON.stringify(payload)
-  })
+  let response
+
+  try {
+    response = await fetch(`${apiBaseUrl}${path}`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(payload)
+    })
+  } catch {
+    throw new Error(`Unable to reach the backend at ${apiBaseUrl}. Make sure the API server is running.`)
+  }
+
   if (!response.ok) {
     const err = await response.json().catch(() => ({}))
     throw new Error(err.detail || `POST ${path} failed with status ${response.status}`)
@@ -97,6 +104,10 @@ export async function fetchAlgorithms() {
   return getJson('/api/algorithms')
 }
 
+export async function fetchSimulations() {
+  return getJson('/api/simulations')
+}
+
 /**
  * Progress & Settings
  */
@@ -141,6 +152,14 @@ export async function createProject(payload, profileId = 'guest') {
   return postJson(`/api/projects?profile_id=${profileId}`, payload)
 }
 
+export async function updateProject(projectId, payload, profileId = 'guest') {
+  return putJson(`/api/projects/${projectId}?profile_id=${profileId}`, payload)
+}
+
+export async function exportProject(projectId, profileId = 'guest') {
+  return postJson(`/api/projects/${projectId}/export?profile_id=${profileId}`, {})
+}
+
 /**
  * Forge
  */
@@ -171,4 +190,16 @@ export async function aiSocraticAnchor(code, problemContext, userQuery, profileI
 
 export async function aiIdeaToSyntax(description, profileId = 'guest') {
   return postJson(`/api/ai/idea-to-syntax?profile_id=${profileId}`, { description })
+}
+
+/**
+ * Notifications
+ */
+
+export async function fetchNotifications(profileId = 'guest', limit = 10) {
+  return getJson(`/api/notifications?profile_id=${profileId}&limit=${limit}`)
+}
+
+export async function markNotificationRead(notificationId, profileId = 'guest') {
+  return putJson(`/api/notifications/${notificationId}/read?profile_id=${profileId}`, {})
 }

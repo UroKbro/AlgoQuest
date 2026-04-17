@@ -3,8 +3,8 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Query
 
 from ..ai_service import AIService, get_ai_service
-from ..logger import log_info, log_error
-from ..repositories import log_ai_usage
+from ..logger import log_error
+from ..repositories import log_ai_usage, track_activity
 from ..schemas import (
     AIBlueprintRequest,
     AIBlueprintResponse,
@@ -25,11 +25,16 @@ async def review_logic(
     service: AIService = Depends(get_ai_service),
 ) -> AIReviewResponse:
     import time
+
     start_time = time.perf_counter()
     status = "success"
-    
+
     try:
         result = await service.review_logic(payload.code, payload.focus)
+        metadata = {"language": payload.language}
+        if payload.focus:
+            metadata["focus"] = payload.focus
+        track_activity(profile_id, "critique", metadata)
         return AIReviewResponse(
             critique=result.get("critique", "No critique generated."),
             logicScore=result.get("logicScore", 0),
@@ -40,13 +45,7 @@ async def review_logic(
         raise
     finally:
         latency = int((time.perf_counter() - start_time) * 1000)
-        log_ai_usage(
-            profile_id, 
-            "review-logic", 
-            payload.code[:100], 
-            status, 
-            latency
-        )
+        log_ai_usage(profile_id, "review-logic", payload.code[:100], status, latency)
 
 
 @router.post("/socratic-anchor", response_model=AISocraticResponse)
@@ -56,11 +55,14 @@ async def socratic_anchor(
     service: AIService = Depends(get_ai_service),
 ) -> AISocraticResponse:
     import time
+
     start_time = time.perf_counter()
     status = "success"
-    
+
     try:
-        hint = await service.socratic_hint(payload.code, payload.problemContext, payload.userQuery)
+        hint = await service.socratic_hint(
+            payload.code, payload.problemContext, payload.userQuery
+        )
         return AISocraticResponse(hint=hint)
     except Exception as e:
         status = "error"
@@ -69,11 +71,7 @@ async def socratic_anchor(
     finally:
         latency = int((time.perf_counter() - start_time) * 1000)
         log_ai_usage(
-            profile_id, 
-            "socratic-anchor", 
-            payload.problemContext[:100], 
-            status, 
-            latency
+            profile_id, "socratic-anchor", payload.problemContext[:100], status, latency
         )
 
 
@@ -84,9 +82,10 @@ async def idea_to_syntax(
     service: AIService = Depends(get_ai_service),
 ) -> AIBlueprintResponse:
     import time
+
     start_time = time.perf_counter()
     status = "success"
-    
+
     try:
         result = await service.generate_blueprint(payload.description)
         return AIBlueprintResponse(
@@ -102,9 +101,5 @@ async def idea_to_syntax(
     finally:
         latency = int((time.perf_counter() - start_time) * 1000)
         log_ai_usage(
-            profile_id, 
-            "idea-to-syntax", 
-            payload.description[:100], 
-            status, 
-            latency
+            profile_id, "idea-to-syntax", payload.description[:100], status, latency
         )

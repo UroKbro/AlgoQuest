@@ -1,4 +1,4 @@
-import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Route, Routes, Navigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import AppLayout from './components/AppLayout'
 import DojoPage from './pages/DojoPage'
@@ -11,7 +11,9 @@ import SandboxPage from './pages/SandboxPage'
 import WorldPage from './pages/WorldPage'
 import ForgePage from './pages/ForgePage'
 import PathPage from './pages/PathPage'
-import { fetchSettings, updateSettings } from './api'
+import LandingPage from './pages/LandingPage'
+import AuthPage from './pages/AuthPage'
+import { fetchSettings, updateSettings, fetchNotifications } from './api'
 
 const settingsStorageKey = 'algoquest-settings'
 const defaultSettings = {
@@ -24,11 +26,7 @@ const defaultSettings = {
 function readStoredSettings() {
   try {
     const raw = localStorage.getItem(settingsStorageKey)
-
-    if (!raw) {
-      return defaultSettings
-    }
-
+    if (!raw) return defaultSettings
     return { ...defaultSettings, ...JSON.parse(raw) }
   } catch {
     return defaultSettings
@@ -44,8 +42,12 @@ function applySettingsToDocument(settings) {
 }
 
 export default function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    return !!localStorage.getItem('algoquest-token')
+  })
+
   const [appState, setAppState] = useState(() => ({
-    sessionMode: 'guest',
+    sessionMode: isAuthenticated ? 'user' : 'guest',
     settings: defaultSettings,
     progress: { lessons: [] },
     notifications: [],
@@ -54,35 +56,38 @@ export default function App() {
 
   useEffect(() => {
     const storedSettings = readStoredSettings()
-    
-    // Initial sync from local storage
     setAppState((current) => ({
       ...current,
       settings: storedSettings,
     }))
 
-    // Try to fetch from backend
-    fetchSettings('guest')
+    const profileId = isAuthenticated ? 'me' : 'guest'
+    
+    fetchSettings(profileId)
       .then(backendSettings => {
         setAppState(current => ({
           ...current,
           settings: { ...current.settings, ...backendSettings }
         }))
-        triggerNotification('System Online', 'Mastery data synchronized with backend.', 'success')
+        if (isAuthenticated) {
+          triggerNotification('Identity Verified', 'Neural link established. cloud sync active.', 'success')
+        }
       })
       .catch(err => {
-          console.warn("Backend sync failed, using guest mode local storage.", err)
-          triggerNotification('Guest Mode', 'Local persistence active. Cloud sync unavailable.', 'warning')
+          console.warn("Backend sync failed.", err)
+          if (isAuthenticated) {
+            triggerNotification('Sync Interruption', 'Cloud storage unreachable. Reverting to local cache.', 'warning')
+          }
       })
-  }, [])
+  }, [isAuthenticated])
 
   useEffect(() => {
     localStorage.setItem(settingsStorageKey, JSON.stringify(appState.settings))
     applySettingsToDocument(appState.settings)
     
-    // Throttle / Debounce this in production, but for now just push
-    updateSettings(appState.settings, 'guest').catch(() => {})
-  }, [appState.settings])
+    const profileId = isAuthenticated ? 'me' : 'guest'
+    updateSettings(appState.settings, profileId).catch(() => {})
+  }, [appState.settings, isAuthenticated])
 
   function triggerNotification(title, message, type = 'info') {
     const id = Date.now()
@@ -101,7 +106,12 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route element={<AppLayout appState={appState} />}>
+        {/* Public Routes */}
+        <Route path="/landing" element={!isAuthenticated ? <LandingPage /> : <Navigate to="/" />} />
+        <Route path="/auth" element={!isAuthenticated ? <AuthPage /> : <Navigate to="/" />} />
+
+        {/* Protected Application Shell */}
+        <Route element={isAuthenticated ? <AppLayout appState={appState} /> : <Navigate to="/landing" />}>
           <Route path="/" element={<NexusPage />} />
           <Route path="/dojo" element={<DojoPage onNotify={triggerNotification} />} />
           <Route path="/laboratory" element={<LaboratoryPage onNotify={triggerNotification} />} />
@@ -110,8 +120,9 @@ export default function App() {
           <Route path="/forge" element={<ForgePage onNotify={triggerNotification} />} />
           <Route path="/path" element={<PathPage onNotify={triggerNotification} />} />
           <Route path="/terminal" element={<TerminalPage appState={appState} setAppState={setAppState} onNotify={triggerNotification} />} />
-          <Route path="*" element={<NotFoundPage />} />
         </Route>
+
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </BrowserRouter>
   )

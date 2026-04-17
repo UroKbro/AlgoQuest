@@ -14,18 +14,15 @@ async def signup(payload: UserSignupRequest) -> TokenResponse:
     existing = get_user_by_username(payload.username)
     if existing:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_VALUE,
-            detail="Username already registered"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username already registered",
         )
-    
+
     hashed = get_password_hash(payload.password)
     user = create_user(payload.username, hashed)
-    
+
     token = create_access_token(data={"sub": str(user["id"])})
-    return TokenResponse(
-        accessToken=token,
-        user=UserResponse.model_validate(user)
-    )
+    return TokenResponse(accessToken=token, user=UserResponse.model_validate(user))
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -37,9 +34,6 @@ async def login(payload: UserLoginRequest) -> TokenResponse:
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     token = create_access_token(data={"sub": str(user["id"])})
-    return TokenResponse(
-        accessToken=token,
-        user=UserResponse.model_validate(user)
-    )
+    return TokenResponse(accessToken=token, user=UserResponse.model_validate(user))

@@ -1,14 +1,7 @@
-import type { ReactNode } from 'react';
-
-export interface ButtonProps {
-  className?: string;
-  variant?: 'primary' | 'secondary' | 'tertiary';
-  size?: 'sm' | 'md' | 'lg';
-  children?: ReactNode;
-}
-
-export const Button: React.FC<ButtonProps> = ({ className, variant = 'primary', size = 'md', children }) => (
+function Button({ className = '', variant = 'primary', size = 'md', children, ...props }) {
+  return (
   <button
+    {...props}
     className={`rounded-md transition-colors duration-200 ${size === 'sm' ? 'px-4 py-2 text-sm' :
       size === 'md' ? 'px-6 py-3 text-base' :
       'px-8 py-4 text-lg'} ${
@@ -21,4 +14,8 @@ export const Button: React.FC<ButtonProps> = ({ className, variant = 'primary', 
   >
     {children}
   </button>
-);
+  )
+}
+
+export { Button }
+export default Button

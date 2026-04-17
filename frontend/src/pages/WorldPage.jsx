@@ -6,7 +6,7 @@ import Prism from 'prismjs'
 import 'prismjs/components/prism-python'
 import { realmConfig } from '../appConfig'
 import PageHeader from '../components/PageHeader'
-import { fetchProjectBlueprints, aiIdeaToSyntax, aiReviewLogic } from '../api'
+import { fetchProjectBlueprints, fetchProjects, createProject, updateProject, exportProject, aiIdeaToSyntax, aiReviewLogic } from '../api'
 import ReactMarkdown from 'react-markdown'
 
 const ProjectNode = ({ data }) => (
@@ -23,7 +23,9 @@ const nodeTypes = { projectNode: ProjectNode }
 export default function WorldPage() {
   const realm = realmConfig.world
   const [blueprints, setBlueprints] = useState([])
+  const [projects, setProjects] = useState([])
   const [selectedBlueprint, setSelectedBlueprint] = useState(null)
+  const [activeProjectId, setActiveProjectId] = useState(null)
   const [code, setCode] = useState('')
   const [status, setStatus] = useState('loading')
   const [description, setDescription] = useState('')
@@ -31,6 +33,7 @@ export default function WorldPage() {
   const [edges, setEdges] = useState([])
   const [aiStatus, setAiStatus] = useState('idle')
   const [aiCritique, setAiCritique] = useState('')
+  const [saveState, setSaveState] = useState({ status: 'idle', message: '' })
 
   const onNodesChange = (changes) => setNodes((nds) => applyNodeChanges(changes, nds))
   const onEdgesChange = (changes) => setEdges((eds) => applyEdgeChanges(changes, eds))
@@ -78,27 +81,101 @@ export default function WorldPage() {
   }
 
   useEffect(() => {
-    fetchProjectBlueprints()
-      .then(data => {
-        setBlueprints(data.items ?? [])
-        if (data.items?.length > 0) {
-            setSelectedBlueprint(data.items[0])
-            setCode(data.items[0].starterCode ?? '# Start implementation...')
+    Promise.all([fetchProjectBlueprints(), fetchProjects()])
+      .then(([blueprintsData, projectsData]) => {
+        const blueprintItems = blueprintsData.items ?? []
+        const projectItems = projectsData.items ?? []
+
+        setBlueprints(blueprintItems)
+        setProjects(projectItems)
+
+        if (projectItems.length > 0) {
+          const latestProject = projectItems[0]
+          setActiveProjectId(latestProject.id)
+          setCode(latestProject.files?.['main.py'] ?? '# Start implementation...')
+          setNodes(latestProject.architecture?.nodes ?? [])
+          setEdges(latestProject.architecture?.edges ?? [])
+          setSelectedBlueprint(
+            blueprintItems.find((item) => item.slug === latestProject.blueprintSlug) ?? blueprintItems[0] ?? null,
+          )
+        } else if (blueprintItems.length > 0) {
+          setSelectedBlueprint(blueprintItems[0])
+          setCode('# Start implementation...')
         }
+
         setStatus('ready')
       })
       .catch(() => {
         // Fallback mock
         const mock = [
-            { slug: 'drone-swarm', name: 'Drone Swarm Pilot', eyebrow: 'Autonomous Logic', summary: 'Coordinate 500+ logic drones in a unified swarm.', starterCode: 'class SwarmController:\n    def __init__(self):\n        self.nodes = []\n\n    def sync(self):\n        pass' },
-            { slug: 'traffic-relay', name: 'Packet Relay Map', eyebrow: 'Network Flow', summary: 'Architect a high-throughput network packet router.', starterCode: 'def route_packet(packet, network):\n    # Logic here\n    return True' }
+            { slug: 'drone-swarm', name: 'Drone Swarm Pilot', difficulty: 'Intermediate', summary: 'Coordinate 500+ logic drones in a unified swarm.' },
+            { slug: 'traffic-relay', name: 'Packet Relay Map', difficulty: 'Advanced', summary: 'Architect a high-throughput network packet router.' }
         ]
         setBlueprints(mock)
         setSelectedBlueprint(mock[0])
-        setCode(mock[0].starterCode)
+        setCode('# Start implementation...')
         setStatus('ready')
       })
   }, [])
+
+  const selectedProject = useMemo(
+    () => projects.find((project) => project.id === activeProjectId) ?? null,
+    [projects, activeProjectId],
+  )
+
+  function buildProjectPayload() {
+    const title = selectedProject?.title ?? selectedBlueprint?.name ?? 'Untitled Project'
+
+    return {
+      title,
+      blueprintSlug: selectedBlueprint?.slug ?? null,
+      files: { 'main.py': code },
+      architecture: { nodes, edges },
+    }
+  }
+
+  async function handleSaveProject() {
+    setSaveState({ status: 'saving', message: '' })
+
+    try {
+      const payload = buildProjectPayload()
+      const savedProject = activeProjectId
+        ? await updateProject(activeProjectId, payload)
+        : await createProject(payload)
+
+      setActiveProjectId(savedProject.id)
+      setProjects((current) => {
+        const next = current.filter((item) => item.id !== savedProject.id)
+        return [savedProject, ...next]
+      })
+      setSaveState({ status: 'saved', message: 'Project saved to guest storage.' })
+    } catch (error) {
+      setSaveState({ status: 'error', message: error.message })
+    }
+  }
+
+  async function handleExportProject() {
+    if (!activeProjectId) {
+      setSaveState({ status: 'error', message: 'Save the project before exporting a manifest.' })
+      return
+    }
+
+    setSaveState({ status: 'saving', message: '' })
+
+    try {
+      const manifest = await exportProject(activeProjectId)
+      const blob = new Blob([JSON.stringify(manifest, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `${manifest.title.toLowerCase().replace(/\s+/g, '-')}-manifest.json`
+      link.click()
+      URL.revokeObjectURL(url)
+      setSaveState({ status: 'saved', message: 'Manifest exported.' })
+    } catch (error) {
+      setSaveState({ status: 'error', message: error.message })
+    }
+  }
 
   return (
     <>
@@ -124,13 +201,42 @@ export default function WorldPage() {
                         className={`lesson-item${selectedBlueprint?.slug === bp.slug ? ' is-active' : ''}`}
                         onClick={() => {
                             setSelectedBlueprint(bp)
-                            setCode(bp.starterCode)
+                            setActiveProjectId(null)
+                            setCode(selectedProject?.blueprintSlug === bp.slug ? selectedProject.files?.['main.py'] ?? '# Start implementation...' : '# Start implementation...')
                         }}
                     >
                         <strong>{bp.name}</strong>
-                        <span>{bp.eyebrow}</span>
+                        <span>{bp.summary}</span>
                     </button>
                 ))}
+            </div>
+
+            <div className="panel-heading world-rail-heading">
+              <div>
+                <p className="card-tag text-cyan">Saved projects</p>
+                <h3>Guest workspace</h3>
+              </div>
+            </div>
+            <div className="lesson-stack">
+              {projects.length === 0 ? <p className="status-copy">No saved projects yet.</p> : null}
+              {projects.map((project) => (
+                <button
+                  key={project.id}
+                  className={`lesson-item${activeProjectId === project.id ? ' is-active' : ''}`}
+                  onClick={() => {
+                    setActiveProjectId(project.id)
+                    setCode(project.files?.['main.py'] ?? '# Start implementation...')
+                    setNodes(project.architecture?.nodes ?? [])
+                    setEdges(project.architecture?.edges ?? [])
+                    setSelectedBlueprint(
+                      blueprints.find((item) => item.slug === project.blueprintSlug) ?? selectedBlueprint,
+                    )
+                  }}
+                >
+                  <strong>{project.title}</strong>
+                  <span>Updated {new Date(project.updatedAt).toLocaleDateString()}</span>
+                </button>
+              ))}
             </div>
         </aside>
 
@@ -179,12 +285,15 @@ export default function WorldPage() {
                         />
                     </div>
                      <div className="transport-row">
-                        <button type="button" className="action-button action-button-primary">Save Blueprint</button>
+                        <button type="button" className="action-button action-button-primary" onClick={handleSaveProject} disabled={saveState.status === 'saving'}>
+                          {saveState.status === 'saving' ? 'Saving...' : activeProjectId ? 'Update Project' : 'Save Project'}
+                        </button>
                         <button type="button" className="action-button" onClick={handleAIReview} disabled={aiStatus === 'reviewing'}>
                             {aiStatus === 'reviewing' ? 'Reviewing...' : 'Review Logic'}
                         </button>
-                        <button type="button" className="action-button">Export Manifest</button>
-                    </div>
+                        <button type="button" className="action-button" onClick={handleExportProject}>Export Manifest</button>
+                     </div>
+                     {saveState.message ? <p className="status-copy">{saveState.message}</p> : null}
                 </article>
 
                 <article className="glass-panel content-card">
@@ -214,7 +323,7 @@ export default function WorldPage() {
                         {aiStatus === 'requesting' ? 'Synthesizing...' : 'Trigger Idea-to-Syntax'}
                     </button>
 
-                    {aiCritique && (
+                     {aiCritique && (
                         <div className="glass-panel critique-panel accent-purple" style={{ marginTop: '20px', maxHeight: '300px', overflowY: 'auto' }}>
                              <div className="panel-heading">
                                 <p className="card-tag text-purple">Logic Analysis</p>
@@ -223,7 +332,16 @@ export default function WorldPage() {
                                 <ReactMarkdown>{aiCritique}</ReactMarkdown>
                             </div>
                         </div>
-                    )}
+                     )}
+
+                    <div className="terminal-sync-notice">
+                      <p className="group-label">Workspace metadata</p>
+                      <ul className="mini-list">
+                        <li>Blueprint: {selectedBlueprint?.name ?? 'Custom architecture'}</li>
+                        <li>Difficulty: {selectedBlueprint?.difficulty ?? 'Open-ended'}</li>
+                        <li>Saved project: {selectedProject?.title ?? 'Not saved yet'}</li>
+                      </ul>
+                    </div>
                 </article>
             </div>
         </div>

@@ -6,7 +6,7 @@ from fastapi.security import OAuth2PasswordBearer
 from .auth_utils import decode_access_token
 from .repositories import get_user_by_id
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
 
 
 async def get_current_user(token: str = Depends(oauth2_scheme)):
@@ -15,19 +15,19 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    
+
     payload = decode_access_token(token)
     if payload is None:
         raise credentials_exception
-    
+
     user_id_str: str | None = payload.get("sub")
     if user_id_str is None:
         raise credentials_exception
-        
+
     user = get_user_by_id(int(user_id_str))
     if user is None:
         raise credentials_exception
-        
+
     return user
 
 

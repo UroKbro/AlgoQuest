@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Query
-
+from fastapi import APIRouter, Query, Depends
+from ..dependencies import get_optional_user
 from ..repositories import (
     add_notification,
     get_current_weekly_gate,
@@ -29,17 +29,21 @@ router = APIRouter(prefix="/api", tags=["progress"])
 @router.get("/progress/summary", response_model=ProgressSummaryResponse)
 async def read_progress_summary(
     profile_id: str = Query(default="guest"),
+    user: dict | None = Depends(get_optional_user),
 ) -> ProgressSummaryResponse:
-    return ProgressSummaryResponse.model_validate(get_progress_summary(profile_id))
+    target_id = str(user["id"]) if user else profile_id
+    return ProgressSummaryResponse.model_validate(get_progress_summary(target_id))
 
 
 @router.get("/progress/lessons", response_model=LessonProgressListResponse)
 async def read_lesson_progress(
     profile_id: str = Query(default="guest"),
+    user: dict | None = Depends(get_optional_user),
 ) -> LessonProgressListResponse:
+    target_id = str(user["id"]) if user else profile_id
     items = [
         LessonProgressResponse.model_validate(item)
-        for item in list_lesson_progress(profile_id)
+        for item in list_lesson_progress(target_id)
     ]
     return LessonProgressListResponse(items=items)
 
@@ -49,9 +53,11 @@ async def write_lesson_progress(
     lesson_slug: str,
     payload: LessonProgressUpdateRequest,
     profile_id: str = Query(default="guest"),
+    user: dict | None = Depends(get_optional_user),
 ) -> LessonProgressResponse:
+    target_id = str(user["id"]) if user else profile_id
     item = update_lesson_progress(
-        profile_id,
+        target_id,
         lesson_slug,
         payload.status,
         payload.attempts,
@@ -59,9 +65,9 @@ async def write_lesson_progress(
     )
 
     if payload.status == "completed":
-        track_activity(profile_id, "solve", {"lesson_id": lesson_slug})
+        track_activity(target_id, "solve", {"lesson_id": lesson_slug})
         add_notification(
-            profile_id,
+            target_id,
             "Mastery Gained",
             f"You have successfully conquered {lesson_slug}.",
             "success",
@@ -73,8 +79,10 @@ async def write_lesson_progress(
 @router.get("/progress/weekly-gate/current", response_model=WeeklyGateResponse)
 async def read_current_weekly_gate(
     profile_id: str = Query(default="guest"),
+    user: dict | None = Depends(get_optional_user),
 ) -> WeeklyGateResponse:
-    return WeeklyGateResponse.model_validate(get_current_weekly_gate(profile_id))
+    target_id = str(user["id"]) if user else profile_id
+    return WeeklyGateResponse.model_validate(get_current_weekly_gate(target_id))
 
 
 @router.post(
@@ -84,14 +92,18 @@ async def submit_weekly_gate_attempt(
     week_start: str,
     payload: WeeklyGateSubmitRequest,
     profile_id: str = Query(default="guest"),
+    user: dict | None = Depends(get_optional_user),
 ) -> WeeklyGateResponse:
+    target_id = str(user["id"]) if user else profile_id
     return WeeklyGateResponse.model_validate(
-        submit_weekly_gate(profile_id, week_start, payload.score)
+        submit_weekly_gate(target_id, week_start, payload.score)
     )
 
 
 @router.get("/path/analytics", response_model=PathAnalyticsResponse)
 async def read_path_analytics(
     profile_id: str = Query(default="guest"),
+    user: dict | None = Depends(get_optional_user),
 ) -> PathAnalyticsResponse:
-    return PathAnalyticsResponse.model_validate(get_path_analytics(profile_id))
+    target_id = str(user["id"]) if user else profile_id
+    return PathAnalyticsResponse.model_validate(get_path_analytics(target_id))

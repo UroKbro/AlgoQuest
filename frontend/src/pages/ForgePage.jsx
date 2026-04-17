@@ -4,6 +4,28 @@ import { realmConfig } from '../appConfig'
 import PageHeader from '../components/PageHeader'
 import { fetchChallenges, fetchPosters } from '../api'
 
+function buildPosterPreview(title) {
+  const safeTitle = String(title ?? 'Poster').replace(/[<>&"]/g, '')
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 240">
+      <defs>
+        <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#0f172a" />
+          <stop offset="55%" stop-color="#111827" />
+          <stop offset="100%" stop-color="#1f2937" />
+        </linearGradient>
+      </defs>
+      <rect width="400" height="240" rx="24" fill="url(#g)" />
+      <circle cx="92" cy="72" r="44" fill="#f59e0b" fill-opacity="0.22" />
+      <circle cx="318" cy="176" r="60" fill="#a855f7" fill-opacity="0.18" />
+      <text x="32" y="172" fill="#f8fafc" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">${safeTitle}</text>
+      <text x="32" y="202" fill="#94a3b8" font-family="Inter, Arial, sans-serif" font-size="14">AlgoQuest Logic Capture</text>
+    </svg>
+  `
+
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`
+}
+
 export default function ForgePage() {
   const realm = realmConfig.forge
   const [posters, setPosters] = useState([])
@@ -60,11 +82,15 @@ export default function ForgePage() {
                 {posters.map(poster => (
                     <article key={poster.id} className="poster-card glass-panel">
                         <div className="poster-thumb">
-                            <img src={`https://placehold.co/400x240/050505/fff?text=${poster.title}`} alt={poster.title} />
+                            <img src={buildPosterPreview(poster.title)} alt={poster.title} />
                         </div>
                         <div className="poster-meta">
                             <strong>{poster.title}</strong>
                             <p>{poster.payload?.summary ?? 'No summary available.'}</p>
+                            <div className="poster-detail-row">
+                              <span className="mini-pill">{poster.sourceType ?? 'manual'}</span>
+                              <span className="mini-pill">{poster.visibility ?? 'private'}</span>
+                            </div>
                         </div>
                     </article>
                 ))}
@@ -85,9 +111,10 @@ export default function ForgePage() {
                             <span className="mini-pill">{challenge.parameters?.difficulty ?? 'Diagnostic'}</span>
                             <span className="mini-pill text-amber">{challenge.parameters?.reward ?? 'Cyan Badge'}</span>
                         </div>
-                        <h3>{challenge.title}</h3>
-                        <p>{challenge.parameters?.body ?? 'Launch this diagnostic divergence challenge.'}</p>
-                        <button 
+                         <h3>{challenge.title}</h3>
+                         <p>{challenge.parameters?.body ?? 'Launch this diagnostic divergence challenge.'}</p>
+                         <p className="status-copy">Target realm: {challenge.targetRealm}</p>
+                         <button 
                             type="button" 
                             className="action-button action-button-primary"
                             onClick={() => handleLaunchChallenge(challenge)}

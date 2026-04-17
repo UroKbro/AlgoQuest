@@ -117,6 +117,22 @@ def upsert_lesson_progress(
     )
 
 
+def update_lesson_progress(
+    profile_id: str,
+    lesson_slug: str,
+    status: str,
+    attempts: int,
+    last_code_snapshot: str,
+) -> dict:
+    return upsert_lesson_progress(
+        profile_id,
+        lesson_slug,
+        status,
+        attempts,
+        last_code_snapshot,
+    )
+
+
 def get_progress_summary(profile_id: str = "guest") -> dict:
     lessons = list_lesson_progress(profile_id)
     completed_count = sum(1 for lesson in lessons if lesson["status"] == "completed")
@@ -463,19 +479,25 @@ def create_user(username: str, hashed_password: str) -> dict:
             (username, hashed_password, _now_iso()),
         )
         user_id = cursor.lastrowid
-        row = connection.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+        row = connection.execute(
+            "SELECT * FROM users WHERE id = ?", (user_id,)
+        ).fetchone()
         return _user_row_to_dict(row)
 
 
 def get_user_by_username(username: str) -> dict | None:
     with get_connection() as connection:
-        row = connection.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
+        row = connection.execute(
+            "SELECT * FROM users WHERE username = ?", (username,)
+        ).fetchone()
         return _user_row_to_dict(row) if row else None
 
 
 def get_user_by_id(user_id: int) -> dict | None:
     with get_connection() as connection:
-        row = connection.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+        row = connection.execute(
+            "SELECT * FROM users WHERE id = ?", (user_id,)
+        ).fetchone()
         return _user_row_to_dict(row) if row else None
 
 
@@ -576,7 +598,11 @@ def _get_real_weekly_stats(profile_id: str) -> list[dict]:
 
     days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
     return [
-        {"day": d, "activeMinutes": 15 + (i * 3), "logicProblemsSolved": (solves if i == 4 else (1 if i < 4 else 0))}
+        {
+            "day": d,
+            "activeMinutes": 15 + (i * 3),
+            "logicProblemsSolved": (solves if i == 4 else (1 if i < 4 else 0)),
+        }
         for i, d in enumerate(days)
     ]
 
