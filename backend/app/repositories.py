@@ -1,23 +1,138 @@
 from __future__ import annotations
-from typing import Optional, Union, Any, cast
 
-import json
+from typing import Optional, Any
+
 from datetime import datetime, timezone
 
+import httpx
+
 from .content import LESSONS
-from .db import get_connection
+from .config import settings
 
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def get_settings(profile_id: str = "guest") -> dict:
-    with get_connection() as connection:
-        row = connection.execute(
-            "SELECT * FROM settings WHERE profile_id = ?", (profile_id,)
-        ).fetchone()
+def _headers(prefer: str | None = None) -> dict[str, str]:
+    headers = {
+        "apikey": settings.supabase_service_role_key,
+        "Authorization": f"Bearer {settings.supabase_service_role_key}",
+        "Content-Type": "application/json",
+    }
+    if prefer:
+        headers["Prefer"] = prefer
+    return headers
 
+
+async def _request(
+    method: str,
+    table: str,
+    *,
+    params: dict[str, Any] | None = None,
+    json_payload: Any = None,
+    prefer: str | None = None,
+) -> Any:
+    if not settings.supabase_url or not settings.supabase_service_role_key:
+        raise RuntimeError(
+            "Supabase is not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY."
+        )
+
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        response = await client.request(
+            method,
+            f"{settings.supabase_url}/rest/v1/{table}",
+            params=params,
+            json=json_payload,
+            headers=_headers(prefer),
+        )
+
+    if response.is_success:
+        if not response.content:
+            return None
+        return response.json()
+
+    try:
+        payload = response.json()
+    except Exception:
+        payload = {}
+
+    message = payload.get("message") or payload.get("details") or payload.get("hint")
+    raise RuntimeError(
+        message
+        or f"Supabase request failed for {table} with status {response.status_code}"
+    )
+
+
+async def _select(
+    table: str,
+    *,
+    filters: dict[str, Any] | None = None,
+    order: str | None = None,
+    limit: int | None = None,
+    maybe_single: bool = False,
+) -> Any:
+    params: dict[str, Any] = {"select": "*"}
+    for key, value in (filters or {}).items():
+        params[key] = f"eq.{value}"
+    if order:
+        params["order"] = order
+    if limit is not None:
+        params["limit"] = str(limit)
+
+    rows = await _request("GET", table, params=params)
+    if maybe_single:
+        return rows[0] if rows else None
+    return rows
+
+
+async def _insert(table: str, payload: dict[str, Any]) -> dict[str, Any]:
+    rows = await _request(
+        "POST", table, json_payload=payload, prefer="return=representation"
+    )
+    return rows[0]
+
+
+async def _upsert(
+    table: str, payload: dict[str, Any], *, on_conflict: str
+) -> dict[str, Any]:
+    rows = await _request(
+        "POST",
+        table,
+        params={"on_conflict": on_conflict},
+        json_payload=payload,
+        prefer="resolution=merge-duplicates,return=representation",
+    )
+    return rows[0]
+
+
+async def _update(
+    table: str, filters: dict[str, Any], payload: dict[str, Any]
+) -> dict[str, Any] | None:
+    params = {key: f"eq.{value}" for key, value in filters.items()}
+    rows = await _request(
+        "PATCH",
+        table,
+        params=params,
+        json_payload=payload,
+        prefer="return=representation",
+    )
+    return rows[0] if rows else None
+
+
+async def _count(table: str, *, filters: dict[str, Any] | None = None) -> int:
+    return len(await _select(table, filters=filters))
+
+
+# ---------------------------------------------------------------------------
+# Settings
+# ---------------------------------------------------------------------------
+
+
+async def get_settings(profile_id: str = "guest") -> dict:
+    row = await _select(
+        "settings", filters={"profile_id": profile_id}, maybe_single=True
+    )
     if row is None:
         return {
             "profileId": profile_id,
@@ -36,105 +151,124 @@ def get_settings(profile_id: str = "guest") -> dict:
     }
 
 
-def upsert_settings(
+async def upsert_settings(
     profile_id: str,
     neon_intensity: int,
     sound_volume: int,
     motion_blur: int,
     reduced_motion: bool,
 ) -> dict:
-    with get_connection() as connection:
-        connection.execute(
-            """
-            INSERT INTO settings (profile_id, neon_intensity, sound_volume, motion_blur, reduced_motion)
-            VALUES (?, ?, ?, ?, ?)
-            ON CONFLICT(profile_id) DO UPDATE SET
-                neon_intensity = excluded.neon_intensity,
-                sound_volume = excluded.sound_volume,
-                motion_blur = excluded.motion_blur,
-                reduced_motion = excluded.reduced_motion
-            """,
-            (
-                profile_id,
-                neon_intensity,
-                sound_volume,
-                motion_blur,
-                int(reduced_motion),
-            ),
-        )
-    return get_settings(profile_id)
+    row = await _upsert(
+        "settings",
+        {
+            "profile_id": profile_id,
+            "neon_intensity": neon_intensity,
+            "sound_volume": sound_volume,
+            "motion_blur": motion_blur,
+            "reduced_motion": reduced_motion,
+        },
+        on_conflict="profile_id",
+    )
+    return {
+        "profileId": row["profile_id"],
+        "neonIntensity": row["neon_intensity"],
+        "soundVolume": row["sound_volume"],
+        "motionBlur": row["motion_blur"],
+        "reducedMotion": bool(row["reduced_motion"]),
+    }
 
 
-def list_lesson_progress(profile_id: str = "guest") -> list[dict]:
+# ---------------------------------------------------------------------------
+# Lesson Progress
+# ---------------------------------------------------------------------------
+
+
+async def list_lesson_progress(profile_id: str = "guest") -> list[dict]:
     lesson_map = {lesson["slug"]: lesson for lesson in LESSONS}
-    with get_connection() as connection:
-        rows = connection.execute(
-            "SELECT * FROM lesson_progress WHERE profile_id = ? ORDER BY updated_at DESC, lesson_slug ASC",
-            (profile_id,),
-        ).fetchall()
+    rows = await _select(
+        "lesson_progress",
+        filters={"profile_id": profile_id},
+        order="updated_at.desc,lesson_slug.asc",
+    )
 
-    items = []
-    for row in rows:
-        lesson = lesson_map.get(row["lesson_slug"], {})
-        items.append(
-            {
-                "lessonSlug": row["lesson_slug"],
-                "title": lesson.get("title", row["lesson_slug"]),
-                "tier": lesson.get("tier", "Unknown"),
-                "status": row["status"],
-                "attempts": row["attempts"],
-                "lastCodeSnapshot": row["last_code_snapshot"],
-                "updatedAt": row["updated_at"],
-            }
-        )
-    return items
+    return [
+        {
+            "lessonSlug": row["lesson_slug"],
+            "title": lesson_map.get(row["lesson_slug"], {}).get(
+                "title", row["lesson_slug"]
+            ),
+            "tier": lesson_map.get(row["lesson_slug"], {}).get("tier", "Unknown"),
+            "status": row["status"],
+            "attempts": row["attempts"],
+            "lastCodeSnapshot": row["last_code_snapshot"],
+            "updatedAt": row["updated_at"],
+        }
+        for row in rows
+    ]
 
 
-def upsert_lesson_progress(
+async def upsert_lesson_progress(
     profile_id: str,
     lesson_slug: str,
     status: str,
     attempts: int,
     last_code_snapshot: str,
 ) -> dict:
-    with get_connection() as connection:
-        connection.execute(
-            """
-            INSERT INTO lesson_progress (profile_id, lesson_slug, status, attempts, last_code_snapshot, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-            ON CONFLICT(profile_id, lesson_slug) DO UPDATE SET
-                status = excluded.status,
-                attempts = excluded.attempts,
-                last_code_snapshot = excluded.last_code_snapshot,
-                updated_at = excluded.updated_at
-            """,
-            (profile_id, lesson_slug, status, attempts, last_code_snapshot, _now_iso()),
-        )
-    return next(
-        item
-        for item in list_lesson_progress(profile_id)
-        if item["lessonSlug"] == lesson_slug
+    row = await _upsert(
+        "lesson_progress",
+        {
+            "profile_id": profile_id,
+            "lesson_slug": lesson_slug,
+            "status": status,
+            "attempts": attempts,
+            "last_code_snapshot": last_code_snapshot,
+            "updated_at": _now_iso(),
+        },
+        on_conflict="profile_id,lesson_slug",
     )
+    lesson_map = {lesson["slug"]: lesson for lesson in LESSONS}
+    return {
+        "lessonSlug": row["lesson_slug"],
+        "title": lesson_map.get(row["lesson_slug"], {}).get(
+            "title", row["lesson_slug"]
+        ),
+        "tier": lesson_map.get(row["lesson_slug"], {}).get("tier", "Unknown"),
+        "status": row["status"],
+        "attempts": row["attempts"],
+        "lastCodeSnapshot": row["last_code_snapshot"],
+        "updatedAt": row["updated_at"],
+    }
 
 
-def update_lesson_progress(
+async def update_lesson_progress(
     profile_id: str,
     lesson_slug: str,
     status: str,
     attempts: int,
     last_code_snapshot: str,
 ) -> dict:
-    return upsert_lesson_progress(
-        profile_id,
-        lesson_slug,
-        status,
-        attempts,
-        last_code_snapshot,
+    return await upsert_lesson_progress(
+        profile_id, lesson_slug, status, attempts, last_code_snapshot
     )
 
 
-def get_progress_summary(profile_id: str = "guest") -> dict:
-    lessons = list_lesson_progress(profile_id)
+# ---------------------------------------------------------------------------
+# Weekly Gate & Analytics
+# ---------------------------------------------------------------------------
+
+
+async def _latest_gate(profile_id: str) -> dict[str, Any] | None:
+    return await _select(
+        "weekly_gate_results",
+        filters={"profile_id": profile_id},
+        order="completed_at.desc",
+        limit=1,
+        maybe_single=True,
+    )
+
+
+async def get_progress_summary(profile_id: str = "guest") -> dict:
+    lessons = await list_lesson_progress(profile_id)
     completed_count = sum(1 for lesson in lessons if lesson["status"] == "completed")
     active_lesson = next(
         (
@@ -144,31 +278,12 @@ def get_progress_summary(profile_id: str = "guest") -> dict:
         ),
         lessons[0] if lessons else None,
     )
-
-    with get_connection() as connection:
-        gate = connection.execute(
-            """
-            SELECT score, strengths_json, friction_points_json, completed_at
-            FROM weekly_gate_results
-            WHERE profile_id = ?
-            ORDER BY completed_at DESC
-            LIMIT 1
-            """,
-            (profile_id,),
-        ).fetchone()
-
-    strengths = (
-        json.loads(gate["strengths_json"])
-        if gate
-        else ["Loop consistency", "Array scanning"]
-    )
+    gate = await _latest_gate(profile_id)
     friction_points = (
-        json.loads(gate["friction_points_json"])
+        gate["friction_points_json"]
         if gate
         else ["Nested recursion", "Snapshot comparison"]
     )
-
-    weekly_stats = _get_real_weekly_stats(profile_id)
 
     return {
         "continuity": {
@@ -187,7 +302,7 @@ def get_progress_summary(profile_id: str = "guest") -> dict:
                 else "logic drill",
             },
         },
-        "weeklyStats": weekly_stats,
+        "weeklyStats": await _get_real_weekly_stats(profile_id),
         "focus": {
             "label": friction_points[0] if friction_points else "Recursive Depth",
             "summary": "Your strongest loops are stable, but deeper state comparisons still need repetition.",
@@ -196,28 +311,15 @@ def get_progress_summary(profile_id: str = "guest") -> dict:
     }
 
 
-def get_path_analytics(profile_id: str = "guest") -> dict:
-    lessons = list_lesson_progress(profile_id)
+async def get_path_analytics(profile_id: str = "guest") -> dict:
+    lessons = await list_lesson_progress(profile_id)
     completed_count = sum(1 for lesson in lessons if lesson["status"] == "completed")
-    with get_connection() as connection:
-        gate = connection.execute(
-            """
-            SELECT score, strengths_json, friction_points_json
-            FROM weekly_gate_results
-            WHERE profile_id = ?
-            ORDER BY completed_at DESC
-            LIMIT 1
-            """,
-            (profile_id,),
-        ).fetchone()
-
+    gate = await _latest_gate(profile_id)
     strengths = (
-        json.loads(gate["strengths_json"])
-        if gate
-        else ["Loop consistency", "Array scanning"]
+        gate["strengths_json"] if gate else ["Loop consistency", "Array scanning"]
     )
     friction_points = (
-        json.loads(gate["friction_points_json"])
+        gate["friction_points_json"]
         if gate
         else ["Nested recursion", "Snapshot comparison"]
     )
@@ -241,7 +343,7 @@ def get_path_analytics(profile_id: str = "guest") -> dict:
     }
 
 
-def get_current_weekly_gate(profile_id: str = "guest") -> dict:
+async def get_current_weekly_gate(profile_id: str = "guest") -> dict:
     return {
         "profileId": profile_id,
         "weekStart": "2026-04-13",
@@ -251,7 +353,7 @@ def get_current_weekly_gate(profile_id: str = "guest") -> dict:
     }
 
 
-def submit_weekly_gate(profile_id: str, week_start: str, score: int) -> dict:
+async def submit_weekly_gate(profile_id: str, week_start: str, score: int) -> dict:
     strengths = (
         ["Loop consistency", "Array scanning"]
         if score >= 70
@@ -263,27 +365,18 @@ def submit_weekly_gate(profile_id: str, week_start: str, score: int) -> dict:
         else ["Loop control", "State updates"]
     )
 
-    with get_connection() as connection:
-        connection.execute(
-            """
-            INSERT INTO weekly_gate_results (
-                profile_id, week_start, score, strengths_json, friction_points_json, completed_at
-            ) VALUES (?, ?, ?, ?, ?, ?)
-            ON CONFLICT(profile_id, week_start) DO UPDATE SET
-                score = excluded.score,
-                strengths_json = excluded.strengths_json,
-                friction_points_json = excluded.friction_points_json,
-                completed_at = excluded.completed_at
-            """,
-            (
-                profile_id,
-                week_start,
-                score,
-                json.dumps(strengths),
-                json.dumps(friction_points),
-                _now_iso(),
-            ),
-        )
+    await _upsert(
+        "weekly_gate_results",
+        {
+            "profile_id": profile_id,
+            "week_start": week_start,
+            "score": score,
+            "strengths_json": strengths,
+            "friction_points_json": friction_points,
+            "completed_at": _now_iso(),
+        },
+        on_conflict="profile_id,week_start",
+    )
 
     return {
         "profileId": profile_id,
@@ -294,81 +387,74 @@ def submit_weekly_gate(profile_id: str, week_start: str, score: int) -> dict:
     }
 
 
-def list_projects(profile_id: str = "guest") -> list[dict]:
-    with get_connection() as connection:
-        rows = connection.execute(
-            "SELECT * FROM projects WHERE profile_id = ? ORDER BY updated_at DESC, id DESC",
-            (profile_id,),
-        ).fetchall()
+# ---------------------------------------------------------------------------
+# Projects
+# ---------------------------------------------------------------------------
+
+
+async def list_projects(profile_id: str = "guest") -> list[dict]:
+    rows = await _select(
+        "projects",
+        filters={"profile_id": profile_id},
+        order="updated_at.desc,id.desc",
+    )
     return [_project_row_to_dict(row) for row in rows]
 
 
-def create_project(
+async def create_project(
     profile_id: str,
     blueprint_slug: Optional[str],
     title: str,
     files: dict,
     architecture: dict,
 ) -> dict:
-    with get_connection() as connection:
-        cursor = connection.execute(
-            """
-            INSERT INTO projects (profile_id, blueprint_slug, title, files_json, architecture_json, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-            """,
-            (
-                profile_id,
-                blueprint_slug,
-                title,
-                json.dumps(files),
-                json.dumps(architecture),
-                _now_iso(),
-            ),
-        )
-        project_id = cursor.lastrowid
-        row = connection.execute(
-            "SELECT * FROM projects WHERE id = ?", (project_id,)
-        ).fetchone()
+    row = await _insert(
+        "projects",
+        {
+            "profile_id": profile_id,
+            "blueprint_slug": blueprint_slug,
+            "title": title,
+            "files_json": files,
+            "architecture_json": architecture,
+            "updated_at": _now_iso(),
+        },
+    )
     return _project_row_to_dict(row)
 
 
-def get_project(project_id: int, profile_id: str = "guest") -> Optional[dict]:
-    with get_connection() as connection:
-        row = connection.execute(
-            "SELECT * FROM projects WHERE id = ? AND profile_id = ?",
-            (project_id, profile_id),
-        ).fetchone()
+async def get_project(project_id: int, profile_id: str = "guest") -> Optional[dict]:
+    row = await _select(
+        "projects",
+        filters={"id": project_id, "profile_id": profile_id},
+        maybe_single=True,
+    )
     return _project_row_to_dict(row) if row else None
 
 
-def update_project(
-    project_id: int, profile_id: str, title: str, files: dict, architecture: dict
+async def update_project(
+    project_id: int,
+    profile_id: str,
+    title: str,
+    files: dict,
+    architecture: dict,
 ) -> Optional[dict]:
-    with get_connection() as connection:
-        connection.execute(
-            """
-            UPDATE projects
-            SET title = ?, files_json = ?, architecture_json = ?, updated_at = ?
-            WHERE id = ? AND profile_id = ?
-            """,
-            (
-                title,
-                json.dumps(files),
-                json.dumps(architecture),
-                _now_iso(),
-                project_id,
-                profile_id,
-            ),
-        )
-        row = connection.execute(
-            "SELECT * FROM projects WHERE id = ? AND profile_id = ?",
-            (project_id, profile_id),
-        ).fetchone()
+    row = await _update(
+        "projects",
+        {"id": project_id, "profile_id": profile_id},
+        {
+            "title": title,
+            "files_json": files,
+            "architecture_json": architecture,
+            "updated_at": _now_iso(),
+        },
+    )
     return _project_row_to_dict(row) if row else None
 
 
-def build_project_export(project_id: int, profile_id: str = "guest") -> Optional[dict]:
-    project = get_project(project_id, profile_id)
+async def build_project_export(
+    project_id: int, profile_id: str = "guest"
+) -> Optional[dict]:
+    project = await get_project(project_id, profile_id)
     if project is None:
         return None
     return {
@@ -382,16 +468,21 @@ def build_project_export(project_id: int, profile_id: str = "guest") -> Optional
     }
 
 
-def list_posters(profile_id: str = "guest") -> list[dict]:
-    with get_connection() as connection:
-        rows = connection.execute(
-            "SELECT * FROM logic_posters WHERE profile_id = ? ORDER BY created_at DESC, id DESC",
-            (profile_id,),
-        ).fetchall()
+# ---------------------------------------------------------------------------
+# Forge
+# ---------------------------------------------------------------------------
+
+
+async def list_posters(profile_id: str = "guest") -> list[dict]:
+    rows = await _select(
+        "logic_posters",
+        filters={"profile_id": profile_id},
+        order="created_at.desc,id.desc",
+    )
     return [_poster_row_to_dict(row) for row in rows]
 
 
-def create_poster(
+async def create_poster(
     profile_id: str,
     source_type: str,
     source_ref: Optional[str],
@@ -399,115 +490,152 @@ def create_poster(
     payload: dict,
     visibility: str,
 ) -> dict:
-    with get_connection() as connection:
-        cursor = connection.execute(
-            """
-            INSERT INTO logic_posters (profile_id, source_type, source_ref, title, payload_json, visibility)
-            VALUES (?, ?, ?, ?, ?, ?)
-            """,
-            (
-                profile_id,
-                source_type,
-                source_ref,
-                title,
-                json.dumps(payload),
-                visibility,
-            ),
-        )
-        row = connection.execute(
-            "SELECT * FROM logic_posters WHERE id = ?", (cursor.lastrowid,)
-        ).fetchone()
+    row = await _insert(
+        "logic_posters",
+        {
+            "profile_id": profile_id,
+            "source_type": source_type,
+            "source_ref": source_ref,
+            "title": title,
+            "payload_json": payload,
+            "visibility": visibility,
+        },
+    )
     return _poster_row_to_dict(row)
 
 
-def list_challenges(profile_id: str = "guest") -> list[dict]:
-    with get_connection() as connection:
-        rows = connection.execute(
-            "SELECT * FROM forge_challenges WHERE profile_id = ? ORDER BY created_at DESC, id DESC",
-            (profile_id,),
-        ).fetchall()
+async def list_challenges(profile_id: str = "guest") -> list[dict]:
+    rows = await _select(
+        "forge_challenges",
+        filters={"profile_id": profile_id},
+        order="created_at.desc,id.desc",
+    )
     return [_challenge_row_to_dict(row) for row in rows]
 
 
-def create_challenge(
+async def create_challenge(
     profile_id: str, target_realm: str, title: str, parameters: dict
 ) -> dict:
-    with get_connection() as connection:
-        cursor = connection.execute(
-            """
-            INSERT INTO forge_challenges (profile_id, target_realm, title, parameters_json)
-            VALUES (?, ?, ?, ?)
-            """,
-            (profile_id, target_realm, title, json.dumps(parameters)),
-        )
-        row = connection.execute(
-            "SELECT * FROM forge_challenges WHERE id = ?", (cursor.lastrowid,)
-        ).fetchone()
+    row = await _insert(
+        "forge_challenges",
+        {
+            "profile_id": profile_id,
+            "target_realm": target_realm,
+            "title": title,
+            "parameters_json": parameters,
+        },
+    )
     return _challenge_row_to_dict(row)
 
 
-def get_challenge(challenge_id: int, profile_id: str = "guest") -> Optional[dict]:
-    with get_connection() as connection:
-        row = connection.execute(
-            "SELECT * FROM forge_challenges WHERE id = ? AND profile_id = ?",
-            (challenge_id, profile_id),
-        ).fetchone()
+async def get_challenge(challenge_id: int, profile_id: str = "guest") -> Optional[dict]:
+    row = await _select(
+        "forge_challenges",
+        filters={"id": challenge_id, "profile_id": profile_id},
+        maybe_single=True,
+    )
     return _challenge_row_to_dict(row) if row else None
 
 
-def log_ai_usage(
+# ---------------------------------------------------------------------------
+# AI Usage Logging
+# ---------------------------------------------------------------------------
+
+
+async def log_ai_usage(
     profile_id: str,
     endpoint: str,
     prompt_preview: str,
     status: str,
     latency_ms: int,
 ) -> None:
-    with get_connection() as connection:
-        connection.execute(
-            """
-            INSERT INTO ai_usage_logs (profile_id, endpoint, prompt_preview, status, latency_ms, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-            """,
-            (profile_id, endpoint, prompt_preview, status, latency_ms, _now_iso()),
-        )
+    await _insert(
+        "ai_usage_logs",
+        {
+            "profile_id": profile_id,
+            "endpoint": endpoint,
+            "prompt_preview": prompt_preview,
+            "status": status,
+            "latency_ms": latency_ms,
+            "created_at": _now_iso(),
+        },
+    )
 
 
-def create_user(username: str, hashed_password: str) -> dict:
-    with get_connection() as connection:
-        cursor = connection.execute(
-            "INSERT INTO users (username, hashed_password, created_at) VALUES (?, ?, ?)",
-            (username, hashed_password, _now_iso()),
-        )
-        user_id = cursor.lastrowid
-        row = connection.execute(
-            "SELECT * FROM users WHERE id = ?", (user_id,)
-        ).fetchone()
-        return _user_row_to_dict(row)
+# ---------------------------------------------------------------------------
+# Activity & Notifications
+# ---------------------------------------------------------------------------
 
 
-def get_user_by_username(username: str) -> dict | None:
-    with get_connection() as connection:
-        row = connection.execute(
-            "SELECT * FROM users WHERE username = ?", (username,)
-        ).fetchone()
-        return _user_row_to_dict(row) if row else None
+async def track_activity(
+    profile_id: str, event_type: str, metadata: dict | None = None
+) -> None:
+    await _insert(
+        "activity_logs",
+        {
+            "profile_id": profile_id,
+            "event_type": event_type,
+            "metadata_json": metadata or {},
+            "created_at": _now_iso(),
+        },
+    )
 
 
-def get_user_by_id(user_id: int) -> dict | None:
-    with get_connection() as connection:
-        row = connection.execute(
-            "SELECT * FROM users WHERE id = ?", (user_id,)
-        ).fetchone()
-        return _user_row_to_dict(row) if row else None
+async def add_notification(
+    profile_id: str, title: str, message: str, kind: str = "info"
+) -> dict:
+    row = await _insert(
+        "notifications",
+        {
+            "profile_id": profile_id,
+            "title": title,
+            "message": message,
+            "kind": kind,
+            "is_read": False,
+            "created_at": _now_iso(),
+        },
+    )
+    return _notification_row_to_dict(row)
 
 
-def _user_row_to_dict(row) -> dict:
-    return {
-        "id": row["id"],
-        "username": row["username"],
-        "hashed_password": row["hashed_password"],
-        "createdAt": row["created_at"],
-    }
+async def list_notifications(profile_id: str, limit: int = 10) -> list[dict]:
+    rows = await _select(
+        "notifications",
+        filters={"profile_id": profile_id},
+        order="created_at.desc",
+        limit=limit,
+    )
+    return [_notification_row_to_dict(row) for row in rows]
+
+
+async def mark_notification_read(notification_id: int, profile_id: str) -> bool:
+    row = await _update(
+        "notifications",
+        {"id": notification_id, "profile_id": profile_id},
+        {"is_read": True},
+    )
+    return row is not None
+
+
+# ---------------------------------------------------------------------------
+# Internal helpers
+# ---------------------------------------------------------------------------
+
+
+async def _get_real_weekly_stats(profile_id: str) -> list[dict]:
+    solves = await _count(
+        "activity_logs",
+        filters={"profile_id": profile_id, "event_type": "solve"},
+    )
+    days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    return [
+        {
+            "day": day,
+            "activeMinutes": 15 + (i * 3),
+            "logicProblemsSolved": (solves if i == 4 else (1 if i < 4 else 0)),
+        }
+        for i, day in enumerate(days)
+    ]
 
 
 def _project_row_to_dict(row) -> dict:
@@ -516,8 +644,8 @@ def _project_row_to_dict(row) -> dict:
         "profileId": row["profile_id"],
         "blueprintSlug": row["blueprint_slug"],
         "title": row["title"],
-        "files": json.loads(row["files_json"]),
-        "architecture": json.loads(row["architecture_json"]),
+        "files": row["files_json"],
+        "architecture": row["architecture_json"],
         "updatedAt": row["updated_at"],
         "createdAt": row["created_at"],
     }
@@ -530,7 +658,7 @@ def _poster_row_to_dict(row) -> dict:
         "sourceType": row["source_type"],
         "sourceRef": row["source_ref"],
         "title": row["title"],
-        "payload": json.loads(row["payload_json"]),
+        "payload": row["payload_json"],
         "visibility": row["visibility"],
         "createdAt": row["created_at"],
     }
@@ -542,69 +670,9 @@ def _challenge_row_to_dict(row) -> dict:
         "profileId": row["profile_id"],
         "targetRealm": row["target_realm"],
         "title": row["title"],
-        "parameters": json.loads(row["parameters_json"]),
+        "parameters": row["parameters_json"],
         "createdAt": row["created_at"],
     }
-
-
-def track_activity(
-    profile_id: str, event_type: str, metadata: dict | None = None
-) -> None:
-    with get_connection() as connection:
-        connection.execute(
-            "INSERT INTO activity_logs (profile_id, event_type, metadata_json, created_at) VALUES (?, ?, ?, ?)",
-            (profile_id, event_type, json.dumps(metadata or {}), _now_iso()),
-        )
-
-
-def add_notification(
-    profile_id: str, title: str, message: str, kind: str = "info"
-) -> dict:
-    with get_connection() as connection:
-        cursor = connection.execute(
-            "INSERT INTO notifications (profile_id, title, message, kind, created_at) VALUES (?, ?, ?, ?, ?)",
-            (profile_id, title, message, kind, _now_iso()),
-        )
-        row = connection.execute(
-            "SELECT * FROM notifications WHERE id = ?", (cursor.lastrowid,)
-        ).fetchone()
-        return _notification_row_to_dict(row)
-
-
-def list_notifications(profile_id: str, limit: int = 10) -> list[dict]:
-    with get_connection() as connection:
-        rows = connection.execute(
-            "SELECT * FROM notifications WHERE profile_id = ? ORDER BY created_at DESC LIMIT ?",
-            (profile_id, limit),
-        ).fetchall()
-    return [_notification_row_to_dict(row) for row in rows]
-
-
-def mark_notification_read(notification_id: int, profile_id: str) -> bool:
-    with get_connection() as connection:
-        cursor = connection.execute(
-            "UPDATE notifications SET is_read = 1 WHERE id = ? AND profile_id = ?",
-            (notification_id, profile_id),
-        )
-        return cursor.rowcount > 0
-
-
-def _get_real_weekly_stats(profile_id: str) -> list[dict]:
-    with get_connection() as connection:
-        solves = connection.execute(
-            "SELECT COUNT(*) FROM activity_logs WHERE profile_id = ? AND event_type = 'solve'",
-            (profile_id,),
-        ).fetchone()[0]
-
-    days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-    return [
-        {
-            "day": d,
-            "activeMinutes": 15 + (i * 3),
-            "logicProblemsSolved": (solves if i == 4 else (1 if i < 4 else 0)),
-        }
-        for i, d in enumerate(days)
-    ]
 
 
 def _notification_row_to_dict(row) -> dict:

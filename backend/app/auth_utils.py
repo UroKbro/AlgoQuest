@@ -10,6 +10,8 @@ from typing import Any
 from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
 
+from .supabase import get_auth_provider, get_supabase_user_from_token
+
 try:
     from jose import jwt
 except ImportError:  # pragma: no cover - exercised in minimal test envs
@@ -27,26 +29,44 @@ pwd_context = (
 )
 
 ALGORITHM = "HS256"
-# In a real app, use a long random string from environment
-SECRET_KEY = settings.gemini_api_key or "default-secret-for-development"
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
+
+
+def _candidate_secrets() -> list[str]:
+    candidates = [
+        settings.app_secret,
+        settings.gemini_api_key,
+        "default-secret-for-development",
+    ]
+    unique_candidates: list[str] = []
+    for candidate in candidates:
+        if candidate and candidate not in unique_candidates:
+            unique_candidates.append(candidate)
+    return unique_candidates
+
+
+def _primary_secret() -> str:
+    return settings.app_secret
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     if pwd_context is None:
-        digest = hashlib.sha256(password_key(plain_password)).hexdigest()
-        return hmac.compare_digest(digest, hashed_password)
+        for secret in _candidate_secrets():
+            digest = hashlib.sha256(password_key(plain_password, secret)).hexdigest()
+            if hmac.compare_digest(digest, hashed_password):
+                return True
+        return False
     return pwd_context.verify(plain_password, hashed_password)
 
 
 def get_password_hash(password: str) -> str:
     if pwd_context is None:
-        return hashlib.sha256(password_key(password)).hexdigest()
+        return hashlib.sha256(password_key(password, _primary_secret())).hexdigest()
     return pwd_context.hash(password)
 
 
-def password_key(password: str) -> bytes:
-    return f"{SECRET_KEY}:{password}".encode("utf-8")
+def password_key(password: str, secret: str) -> bytes:
+    return f"{secret}:{password}".encode("utf-8")
 
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
@@ -57,9 +77,10 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
         expire = datetime.now(timezone.utc) + timedelta(minutes=60 * 24)  # 24 hours
     exp_timestamp = int(expire.timestamp())
     to_encode.update({"exp": exp_timestamp})
+    secret = _primary_secret()
 
     if jwt is not None:
-        return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+        return jwt.encode(to_encode, secret, algorithm=ALGORITHM)
 
     payload = (
         base64.urlsafe_b64encode(
@@ -69,7 +90,7 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
         .rstrip("=")
     )
     signature = hmac.new(
-        SECRET_KEY.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256
+        secret.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256
     ).hexdigest()
     return f"fallback.{payload}.{signature}"
 
@@ -77,16 +98,26 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
 def decode_access_token(token: str) -> dict[str, Any] | None:
     try:
         if jwt is not None:
-            return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            for secret in _candidate_secrets():
+                try:
+                    return jwt.decode(token, secret, algorithms=[ALGORITHM])
+                except Exception:
+                    continue
+            return None
 
         prefix, payload, signature = token.split(".", 2)
         if prefix != "fallback":
             return None
 
-        expected_signature = hmac.new(
-            SECRET_KEY.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256
-        ).hexdigest()
-        if not hmac.compare_digest(expected_signature, signature):
+        signature_matches = False
+        for secret in _candidate_secrets():
+            expected_signature = hmac.new(
+                secret.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256
+            ).hexdigest()
+            if hmac.compare_digest(expected_signature, signature):
+                signature_matches = True
+                break
+        if not signature_matches:
             return None
 
         padded_payload = payload + "=" * (-len(payload) % 4)
@@ -101,9 +132,16 @@ def decode_access_token(token: str) -> dict[str, Any] | None:
         return None
 
 
-def get_current_user_id(token: str | None = Depends(oauth2_scheme)) -> str | None:
+async def get_current_user_id(token: str | None = Depends(oauth2_scheme)) -> str | None:
     if not token:
         return None
+
+    if get_auth_provider() == "supabase":
+        user = await get_supabase_user_from_token(token)
+        if user is None:
+            return None
+        return str(user["id"])
+
     payload = decode_access_token(token)
     if not payload:
         return None

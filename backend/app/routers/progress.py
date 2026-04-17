@@ -32,7 +32,7 @@ async def read_progress_summary(
     user: dict | None = Depends(get_optional_user),
 ) -> ProgressSummaryResponse:
     target_id = str(user["id"]) if user else profile_id
-    return ProgressSummaryResponse.model_validate(get_progress_summary(target_id))
+    return ProgressSummaryResponse.model_validate(await get_progress_summary(target_id))
 
 
 @router.get("/progress/lessons", response_model=LessonProgressListResponse)
@@ -43,7 +43,7 @@ async def read_lesson_progress(
     target_id = str(user["id"]) if user else profile_id
     items = [
         LessonProgressResponse.model_validate(item)
-        for item in list_lesson_progress(target_id)
+        for item in await list_lesson_progress(target_id)
     ]
     return LessonProgressListResponse(items=items)
 
@@ -56,7 +56,7 @@ async def write_lesson_progress(
     user: dict | None = Depends(get_optional_user),
 ) -> LessonProgressResponse:
     target_id = str(user["id"]) if user else profile_id
-    item = update_lesson_progress(
+    item = await update_lesson_progress(
         target_id,
         lesson_slug,
         payload.status,
@@ -65,8 +65,8 @@ async def write_lesson_progress(
     )
 
     if payload.status == "completed":
-        track_activity(target_id, "solve", {"lesson_id": lesson_slug})
-        add_notification(
+        await track_activity(target_id, "solve", {"lesson_id": lesson_slug})
+        await add_notification(
             target_id,
             "Mastery Gained",
             f"You have successfully conquered {lesson_slug}.",
@@ -82,7 +82,7 @@ async def read_current_weekly_gate(
     user: dict | None = Depends(get_optional_user),
 ) -> WeeklyGateResponse:
     target_id = str(user["id"]) if user else profile_id
-    return WeeklyGateResponse.model_validate(get_current_weekly_gate(target_id))
+    return WeeklyGateResponse.model_validate(await get_current_weekly_gate(target_id))
 
 
 @router.post(
@@ -96,7 +96,7 @@ async def submit_weekly_gate_attempt(
 ) -> WeeklyGateResponse:
     target_id = str(user["id"]) if user else profile_id
     return WeeklyGateResponse.model_validate(
-        submit_weekly_gate(target_id, week_start, payload.score)
+        await submit_weekly_gate(target_id, week_start, payload.score)
     )
 
 
@@ -106,4 +106,4 @@ async def read_path_analytics(
     user: dict | None = Depends(get_optional_user),
 ) -> PathAnalyticsResponse:
     target_id = str(user["id"]) if user else profile_id
-    return PathAnalyticsResponse.model_validate(get_path_analytics(target_id))
+    return PathAnalyticsResponse.model_validate(await get_path_analytics(target_id))

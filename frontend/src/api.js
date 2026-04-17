@@ -26,11 +26,19 @@ function getHeaders() {
  */
 
 export async function getJson(path) {
-  const response = await fetch(`${apiBaseUrl}${path}`, {
-    headers: getHeaders()
-  })
+  let response
+
+  try {
+    response = await fetch(`${apiBaseUrl}${path}`, {
+      headers: getHeaders()
+    })
+  } catch {
+    throw new Error(`Unable to reach the backend at ${apiBaseUrl}. Make sure the API server is running.`)
+  }
+
   if (!response.ok) {
-    throw new Error(`GET ${path} failed with status ${response.status}`)
+    const err = await response.json().catch(() => ({}))
+    throw new Error(err.detail || `GET ${path} failed with status ${response.status}`)
   }
   return response.json()
 }
@@ -50,19 +58,34 @@ export async function postJson(path, payload) {
 
   if (!response.ok) {
     const err = await response.json().catch(() => ({}))
+    if (response.status === 422 && err.errors) {
+      const errorMessages = err.errors.map(e => `${e.loc.join('.')} ${e.msg}`).join(', ')
+      throw new Error(`Validation failed: ${errorMessages}`)
+    }
     throw new Error(err.detail || `POST ${path} failed with status ${response.status}`)
   }
   return response.json()
 }
 
 export async function putJson(path, payload) {
-  const response = await fetch(`${apiBaseUrl}${path}`, {
-    method: 'PUT',
-    headers: getHeaders(),
-    body: JSON.stringify(payload)
-  })
+  let response
+
+  try {
+    response = await fetch(`${apiBaseUrl}${path}`, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify(payload)
+    })
+  } catch {
+    throw new Error(`Unable to reach the backend at ${apiBaseUrl}. Make sure the API server is running.`)
+  }
+
   if (!response.ok) {
     const err = await response.json().catch(() => ({}))
+    if (response.status === 422 && err.errors) {
+      const errorMessages = err.errors.map(e => `${e.loc.join('.')} ${e.msg}`).join(', ')
+      throw new Error(`Validation failed: ${errorMessages}`)
+    }
     throw new Error(err.detail || `PUT ${path} failed with status ${response.status}`)
   }
   return response.json()

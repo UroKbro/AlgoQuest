@@ -28,6 +28,9 @@ class Settings:
         self.gemini_api_key = os.getenv("GEMINI_API_KEY")
         self.admin_username = os.getenv("ALGO_ADMIN_USERNAME", "admin")
         self.admin_password = os.getenv("ALGO_ADMIN_PASSWORD", "admin123456")
+        self.supabase_url = os.getenv("SUPABASE_URL")
+        self.supabase_anon_key = os.getenv("SUPABASE_ANON_KEY")
+        self.supabase_service_role_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
 
 settings = Settings()

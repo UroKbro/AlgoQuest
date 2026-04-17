@@ -26,7 +26,9 @@ async def read_projects(
     user: dict | None = Depends(get_optional_user),
 ) -> ProjectListResponse:
     target_id = str(user["id"]) if user else profile_id
-    items = [ProjectResponse.model_validate(item) for item in list_projects(target_id)]
+    items = [
+        ProjectResponse.model_validate(item) for item in await list_projects(target_id)
+    ]
     return ProjectListResponse(items=items)
 
 
@@ -37,7 +39,7 @@ async def create_project_endpoint(
     user: dict | None = Depends(get_optional_user),
 ) -> ProjectResponse:
     target_id = str(user["id"]) if user else profile_id
-    project = create_project(
+    project = await create_project(
         target_id,
         payload.blueprintSlug,
         payload.title,
@@ -54,7 +56,7 @@ async def read_project(
     user: dict | None = Depends(get_optional_user),
 ) -> ProjectResponse:
     target_id = str(user["id"]) if user else profile_id
-    project = get_project(project_id, target_id)
+    project = await get_project(project_id, target_id)
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
     return ProjectResponse.model_validate(project)
@@ -68,7 +70,7 @@ async def update_project_endpoint(
     user: dict | None = Depends(get_optional_user),
 ) -> ProjectResponse:
     target_id = str(user["id"]) if user else profile_id
-    project = update_project(
+    project = await update_project(
         project_id, target_id, payload.title, payload.files, payload.architecture
     )
     if project is None:
@@ -83,7 +85,7 @@ async def export_project(
     user: dict | None = Depends(get_optional_user),
 ) -> ProjectExportResponse:
     target_id = str(user["id"]) if user else profile_id
-    manifest = build_project_export(project_id, target_id)
+    manifest = await build_project_export(project_id, target_id)
     if manifest is None:
         raise HTTPException(status_code=404, detail="Project not found")
     return ProjectExportResponse.model_validate(manifest)

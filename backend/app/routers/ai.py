@@ -34,7 +34,7 @@ async def review_logic(
         metadata = {"language": payload.language}
         if payload.focus:
             metadata["focus"] = payload.focus
-        track_activity(profile_id, "critique", metadata)
+        await track_activity(profile_id, "critique", metadata)
         return AIReviewResponse(
             critique=result.get("critique", "No critique generated."),
             logicScore=result.get("logicScore", 0),
@@ -45,7 +45,9 @@ async def review_logic(
         raise
     finally:
         latency = int((time.perf_counter() - start_time) * 1000)
-        log_ai_usage(profile_id, "review-logic", payload.code[:100], status, latency)
+        await log_ai_usage(
+            profile_id, "review-logic", payload.code[:100], status, latency
+        )
 
 
 @router.post("/socratic-anchor", response_model=AISocraticResponse)
@@ -70,8 +72,12 @@ async def socratic_anchor(
         raise
     finally:
         latency = int((time.perf_counter() - start_time) * 1000)
-        log_ai_usage(
-            profile_id, "socratic-anchor", payload.problemContext[:100], status, latency
+        await log_ai_usage(
+            profile_id,
+            "socratic-anchor",
+            payload.problemContext[:100],
+            status,
+            latency,
         )
 
 
@@ -100,6 +106,10 @@ async def idea_to_syntax(
         raise
     finally:
         latency = int((time.perf_counter() - start_time) * 1000)
-        log_ai_usage(
-            profile_id, "idea-to-syntax", payload.description[:100], status, latency
+        await log_ai_usage(
+            profile_id,
+            "idea-to-syntax",
+            payload.description[:100],
+            status,
+            latency,
         )

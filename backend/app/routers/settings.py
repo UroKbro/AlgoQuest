@@ -16,7 +16,7 @@ async def read_settings(
     user_id: str | None = Depends(get_current_user_id),
 ) -> SettingsResponse:
     target_id = user_id if user_id else profile_id
-    return SettingsResponse.model_validate(get_settings(target_id))
+    return SettingsResponse.model_validate(await get_settings(target_id))
 
 
 @router.put("", response_model=SettingsResponse)
@@ -27,7 +27,7 @@ async def write_settings(
 ) -> SettingsResponse:
     target_id = user_id if user_id else profile_id
     return SettingsResponse.model_validate(
-        upsert_settings(
+        await upsert_settings(
             target_id,
             payload.neonIntensity,
             payload.soundVolume,

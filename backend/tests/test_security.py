@@ -17,9 +17,8 @@ def test_payload_size_limit_ok(client):
 
 def test_payload_size_limit_too_large(client):
     # Large payload (> 1MB) should be rejected
-    # Create a string of ~1.1MB
     large_string = "a" * (1024 * 1024 + 100)
-    
+
     response = client.post(
         "/api/forge/challenges",
         params={"profile_id": "guest"},
@@ -33,16 +32,16 @@ def test_payload_size_limit_too_large(client):
     assert response.text == "Payload too large"
 
 
-def test_ai_usage_logging_persistence(client, db_connection):
+def test_ai_usage_logging_persistence(client, supabase_store):
     # Call an AI endpoint
     client.post(
         "/api/ai/review-logic",
-        json={"code": "print('hello')", "focus": "test"}
+        json={"code": "print('hello')", "focus": "test"},
     )
-    
-    # Check the database
-    row = db_connection.execute("SELECT * FROM ai_usage_logs").fetchone()
-    assert row is not None
-    assert row["endpoint"] == "review-logic"
-    assert "print('hello')" in row["prompt_preview"]
-    assert row["status"] in ("success", "error")
+
+    # Check the in-memory store
+    rows = supabase_store._tables["ai_usage_logs"]
+    assert len(rows) >= 1
+    assert rows[0]["endpoint"] == "review-logic"
+    assert "print('hello')" in rows[0]["prompt_preview"]
+    assert rows[0]["status"] in ("success", "error")

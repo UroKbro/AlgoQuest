@@ -28,7 +28,9 @@ async def read_posters(
     user_id: str | None = Depends(get_current_user_id),
 ) -> PosterListResponse:
     target_id = user_id if user_id else profile_id
-    items = [PosterResponse.model_validate(item) for item in list_posters(target_id)]
+    items = [
+        PosterResponse.model_validate(item) for item in await list_posters(target_id)
+    ]
     return PosterListResponse(items=items)
 
 
@@ -39,7 +41,7 @@ async def create_poster_endpoint(
     user_id: str | None = Depends(get_current_user_id),
 ) -> PosterResponse:
     target_id = user_id if user_id else profile_id
-    poster = create_poster(
+    poster = await create_poster(
         target_id,
         payload.sourceType,
         payload.sourceRef,
@@ -57,7 +59,8 @@ async def read_challenges(
 ) -> ChallengeListResponse:
     target_id = user_id if user_id else profile_id
     items = [
-        ChallengeResponse.model_validate(item) for item in list_challenges(target_id)
+        ChallengeResponse.model_validate(item)
+        for item in await list_challenges(target_id)
     ]
     return ChallengeListResponse(items=items)
 
@@ -69,7 +72,7 @@ async def create_challenge_endpoint(
     user_id: str | None = Depends(get_current_user_id),
 ) -> ChallengeResponse:
     target_id = user_id if user_id else profile_id
-    challenge = create_challenge(
+    challenge = await create_challenge(
         target_id, payload.targetRealm, payload.title, payload.parameters
     )
     return ChallengeResponse.model_validate(challenge)
@@ -82,7 +85,7 @@ async def read_challenge(
     user_id: str | None = Depends(get_current_user_id),
 ) -> ChallengeResponse:
     target_id = user_id if user_id else profile_id
-    challenge = get_challenge(challenge_id, target_id)
+    challenge = await get_challenge(challenge_id, target_id)
     if challenge is None:
         raise HTTPException(status_code=404, detail="Challenge not found")
     return ChallengeResponse.model_validate(challenge)

@@ -3,7 +3,7 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { realmConfig, realmOrder } from '../appConfig'
 
-export default function AppLayout({ appState }) {
+export default function AppLayout({ appState, onLogout }) {
   const location = useLocation()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
 
@@ -88,6 +88,11 @@ export default function AppLayout({ appState }) {
             <span className="topbar-pill">{appState.sessionMode}</span>
             <span className="topbar-pill">{appState.notifications.length} alerts</span>
             <span className="topbar-pill">AI {appState.aiRequestState.status}</span>
+            {onLogout && (
+              <button type="button" className="topbar-pill" onClick={onLogout} style={{ cursor: 'pointer', background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444' }}>
+                Logout
+              </button>
+            )}
           </div>
         </section>
 

@@ -10,9 +10,14 @@ import PageHeader from '../components/PageHeader'
 import { getPyodide, runPythonCode } from '../runtime/pyodide'
 
 const starterCodeByLesson = {
-  'memory-boxes': 'score = 7\nscore = score + 3\nprint(score)',
-  'loop-mastery': 'total = 0\nfor step in range(1, 5):\n    total += step\nprint(total)',
-  'pointer-drones': 'items = ["amber", "cyan", "purple"]\nfocus = items\nfocus.append("emerald")\nprint(items)',
+  'memory-boxes': '# Create a score variable and assign it 7\nscore = 7\n\n# Add 3 to the current score\nscore = score + 3\n\n# Print the final score\nprint(score)',
+  'loop-mastery': '# Initialize total to 0\ntotal = 0\n\n# Loop from 1 to 4\nfor step in range(1, 5):\n    # Add the current step to the total\n    total += step\n\n# Print the final total\nprint(total)',
+  'pointer-drones': '# Create a list of items\nitems = ["amber", "cyan", "purple"]\n\n# Create a pointer to the items list\nfocus = items\n\n# Append a new item using the pointer\nfocus.append("emerald")\n\n# Print the original list\nprint(items)',
+  'function-foundations': '# Define a function to calculate the area of a rectangle\ndef calculate_area(length, width):\n    return length * width\n\n# Call the function and print the result\narea = calculate_area(5, 3)\nprint(area)',
+  'dictionary-dives': '# Create a dictionary of student grades\ngrades = {"Alice": 85, "Bob": 92, "Charlie": 78}\n\n# Print Bob grade\nprint(grades["Bob"])\n\n# Add a new student\ngrades["David"] = 95\nprint(grades)',
+  'recursion-basics': '# Define a recursive function to calculate factorial\ndef factorial(n):\n    # Base case\n    if n == 0:\n        return 1\n    # Recursive step\n    else:\n        return n * factorial(n - 1)\n\n# Calculate the factorial of 5\nresult = factorial(5)\nprint(result)',
+  'list-comprehensions': '# Create a list of squares for numbers 1 to 5\nsquares = [x * x for x in range(1, 6)]\nprint(squares)',
+  'error-handling': '# Try to divide by zero\ntry:\n    result = 10 / 0\nexcept ZeroDivisionError:\n    print("Cannot divide by zero!")\n',
 }
 
 const dojoStorageKey = 'algoquest-dojo-state'
@@ -55,15 +60,69 @@ function buildStageModel(selectedLesson, code) {
     }
   }
 
+  if (selectedLesson.slug === 'pointer-drones') {
+    return {
+      primaryLabel: 'reference graph',
+      primaryValue: 'shared list',
+      secondaryLabel: 'pointer drone',
+      secondaryValue: 'alias update',
+    }
+  }
+
+  if (selectedLesson.slug === 'function-foundations') {
+    return {
+      primaryLabel: 'call stack',
+      primaryValue: 'function scope',
+      secondaryLabel: 'return value',
+      secondaryValue: 'calculated result',
+    }
+  }
+
+  if (selectedLesson.slug === 'dictionary-dives') {
+    return {
+      primaryLabel: 'hash map',
+      primaryValue: 'O(1) lookup',
+      secondaryLabel: 'key-value',
+      secondaryValue: 'data pair',
+    }
+  }
+
+  if (selectedLesson.slug === 'recursion-basics') {
+    return {
+      primaryLabel: 'call stack',
+      primaryValue: 'nested calls',
+      secondaryLabel: 'base case',
+      secondaryValue: 'exit condition',
+    }
+  }
+
+  if (selectedLesson.slug === 'list-comprehensions') {
+    return {
+      primaryLabel: 'inline loop',
+      primaryValue: 'list generation',
+      secondaryLabel: 'output',
+      secondaryValue: 'new list',
+    }
+  }
+
+  if (selectedLesson.slug === 'error-handling') {
+    return {
+      primaryLabel: 'try block',
+      primaryValue: 'risky logic',
+      secondaryLabel: 'except block',
+      secondaryValue: 'fallback logic',
+    }
+  }
+
   return {
-    primaryLabel: 'reference graph',
-    primaryValue: 'shared list',
-    secondaryLabel: 'pointer drone',
-    secondaryValue: 'alias update',
+    primaryLabel: 'variable',
+    primaryValue: 'pending',
+    secondaryLabel: 'next visual',
+    secondaryValue: 'pointer drone'
   }
 }
 
-export default function DojoPage() {
+export default function DojoPage({ onNotify }) {
   const realm = realmConfig.dojo
   const [state, setState] = useState({ status: 'loading', items: [], message: '' })
   const [selectedLessonSlug, setSelectedLessonSlug] = useState('')
@@ -71,6 +130,7 @@ export default function DojoPage() {
   const [runtimeState, setRuntimeState] = useState({ status: 'idle', stdout: '', stderr: '', message: '' })
   const [progressState, setProgressState] = useState({ completedLessons: [], lastLessonSlug: '' })
   const [aiState, setAiState] = useState({ status: 'idle', critique: '', score: 0 })
+  const [quizState, setQuizState] = useState({ status: 'hidden', selectedAnswer: null, isCorrect: null })
 
   useEffect(() => {
     let cancelled = false
@@ -143,6 +203,7 @@ export default function DojoPage() {
       return
     }
 
+    setQuizState({ status: 'hidden', selectedAnswer: null, isCorrect: null })
     setCodeByLesson((current) => {
       if (current[selectedLesson.slug]) {
         return current
@@ -205,6 +266,11 @@ export default function DojoPage() {
           lastLessonSlug: selectedLesson.slug,
         }))
 
+        // Show quiz if lesson is successful and has a quiz
+        if (selectedLesson.quiz) {
+          setQuizState(prev => ({ ...prev, status: 'visible' }))
+        }
+
         // Sync to backend
         updateLessonProgress(selectedLesson.slug, {
           status: 'completed',
@@ -247,11 +313,23 @@ export default function DojoPage() {
       return
     }
 
+    setQuizState({ status: 'hidden', selectedAnswer: null, isCorrect: null })
     setCodeByLesson((current) => ({
       ...current,
       [selectedLesson.slug]: starterCodeByLesson[selectedLesson.slug] ?? '# Lesson code scaffold',
     }))
     setRuntimeState((current) => ({ ...current, stdout: '', stderr: '', message: '' }))
+  }
+
+  function handleQuizSubmit(answer) {
+    if (!selectedLesson || !selectedLesson.quiz) return
+    const correct = answer === selectedLesson.quiz.answer
+    setQuizState({ status: 'visible', selectedAnswer: answer, isCorrect: correct })
+    if (correct) {
+      onNotify?.('Knowledge Verified', 'Quiz completed successfully.', 'success')
+    } else {
+      onNotify?.('Try Again', 'That is not the correct answer.', 'error')
+    }
   }
 
   const completedSet = new Set(progressState.completedLessons)
@@ -347,6 +425,20 @@ export default function DojoPage() {
             </section>
 
           <section className="content-grid dojo-support-grid">
+            {selectedLesson?.content && (
+              <article className="glass-panel content-card dojo-explanation-card">
+                <div className="panel-heading">
+                  <div>
+                    <p className="card-tag text-cyan">Concept</p>
+                    <h3>Explanation</h3>
+                  </div>
+                </div>
+                <p className="status-copy markdown-critique" style={{marginTop: '1rem'}}>
+                  {selectedLesson.content}
+                </p>
+              </article>
+            )}
+            
             <article className="glass-panel content-card dojo-editor-card">
               <div className="panel-heading">
                 <div>

@@ -1,4 +1,5 @@
-import { motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ArrowRight,
@@ -13,32 +14,44 @@ import {
   Workflow,
 } from 'lucide-react'
 
-const algorithmFrames = [
+const bubbleSortFrames = [
   {
     label: 'Step 1',
-    title: 'Choose the middle',
-    note: 'Target is 42. Start with the whole sorted array.',
-    activeIndex: 4,
-    range: [0, 1, 2, 3, 4, 5, 6, 7, 8],
+    title: 'Compare the first pair',
+    note: 'Bubble sort starts locally. Compare adjacent values and swap if they are out of order.',
+    values: [7, 3, 11, 4, 9, 2],
+    compare: [0, 1],
+    swapped: [0, 1],
+    sorted: [],
   },
   {
     label: 'Step 2',
-    title: 'Discard the left half',
-    note: '18 is too small, so keep only the right side.',
-    activeIndex: 6,
-    range: [5, 6, 7, 8],
+    title: 'Keep pushing the largest rightward',
+    note: 'The current pass keeps moving larger numbers toward the end of the list.',
+    values: [3, 7, 4, 9, 2, 11],
+    compare: [1, 2],
+    swapped: [1, 2],
+    sorted: [5],
   },
   {
     label: 'Step 3',
-    title: 'Lock onto the answer',
-    note: '42 is found after narrowing to a tiny search window.',
-    activeIndex: 7,
-    range: [7],
-    foundIndex: 7,
+    title: 'Shorten the next pass',
+    note: 'Once the largest value lands, the algorithm ignores that sorted tail and repeats.',
+    values: [3, 4, 7, 2, 9, 11],
+    compare: [2, 3],
+    swapped: [2, 3],
+    sorted: [4, 5],
+  },
+  {
+    label: 'Step 4',
+    title: 'Finish with an ordered list',
+    note: 'After a few passes, every value settles into place and the array is sorted.',
+    values: [2, 3, 4, 7, 9, 11],
+    compare: [],
+    swapped: [],
+    sorted: [0, 1, 2, 3, 4, 5],
   },
 ]
-
-const algorithmValues = [3, 7, 11, 14, 18, 24, 31, 42, 57]
 
 const featureCards = [
   {
@@ -119,6 +132,45 @@ const interfaceSignals = [
   { label: 'Learning pace', value: 'guided but flexible' },
 ]
 
+const interactiveModes = [
+  {
+    id: 'dojo',
+    label: 'Dojo',
+    title: 'A calm lesson flow with visible wins',
+    copy: 'Lessons feel structured and encouraging. You always know the concept, the next action, and what progress means.',
+    chips: ['guided lesson', 'live progress', 'gentle pacing'],
+    metrics: [
+      { label: 'Current focus', value: 'two pointers' },
+      { label: 'Lesson confidence', value: 'rising' },
+      { label: 'Session tone', value: 'clear + steady' },
+    ],
+  },
+  {
+    id: 'lab',
+    label: 'Lab',
+    title: 'Visual algorithm playback that makes decisions click',
+    copy: 'The Lab feels responsive and inspectable. You can follow the active state, compare steps, and build intuition from motion.',
+    chips: ['step playback', 'state inspection', 'logic tracing'],
+    metrics: [
+      { label: 'Playback mode', value: 'step-by-step' },
+      { label: 'Active window', value: 'shrinking live' },
+      { label: 'Learning effect', value: 'aha moments' },
+    ],
+  },
+  {
+    id: 'forge',
+    label: 'Forge',
+    title: 'From understanding to building without losing momentum',
+    copy: 'The Forge side feels creative and productive. You can convert what you learned into blueprints, projects, and next steps fast.',
+    chips: ['project blueprints', 'saved work', 'ship-ready flow'],
+    metrics: [
+      { label: 'Output type', value: 'starter blueprint' },
+      { label: 'Creative state', value: 'high momentum' },
+      { label: 'Next action', value: 'build + export' },
+    ],
+  },
+]
+
 const heroStats = [
   { label: 'Realms connected', value: '8' },
   { label: 'Core loop', value: 'learn -> inspect -> build' },
@@ -126,6 +178,10 @@ const heroStats = [
 ]
 
 export default function LandingPage() {
+  const [activeMode, setActiveMode] = useState(interactiveModes[0])
+  const [activeBubbleStep, setActiveBubbleStep] = useState(0)
+  const currentBubbleFrame = bubbleSortFrames[activeBubbleStep]
+
   return (
     <div className="landing-page-shell">
       <div className="landing-aurora landing-aurora-left" aria-hidden="true" />
@@ -205,72 +261,91 @@ export default function LandingPage() {
             <div className="landing-showcase-header">
               <div>
                 <p className="eyebrow">Algorithm Showcase</p>
-                <h2>Binary search, made visible</h2>
+                <h2>Bubble sort, step by step</h2>
               </div>
-              <div className="landing-signal">
-                <span />
-                O(log n) search flow
+              <div className="landing-showcase-controls">
+                <div className="landing-signal">
+                  <span />
+                  O(n^2) sorting flow
+                </div>
+                <div className="landing-step-buttons">
+                  <button
+                    type="button"
+                    className="landing-step-button"
+                    onClick={() => setActiveBubbleStep((step) => Math.max(0, step - 1))}
+                    disabled={activeBubbleStep === 0}
+                  >
+                    Prev
+                  </button>
+                  <button
+                    type="button"
+                    className="landing-step-button"
+                    onClick={() => setActiveBubbleStep((step) => Math.min(bubbleSortFrames.length - 1, step + 1))}
+                    disabled={activeBubbleStep === bubbleSortFrames.length - 1}
+                  >
+                    Next
+                  </button>
+                </div>
               </div>
             </div>
 
             <div className="landing-algorithm-panel">
               <div className="landing-algorithm-meta">
-                <div className="landing-algorithm-chip">Sorted data</div>
-                <div className="landing-algorithm-chip">Compare middle value</div>
-                <div className="landing-algorithm-chip">Halve the search window</div>
+                <div className="landing-algorithm-chip">Compare neighbors</div>
+                <div className="landing-algorithm-chip">Swap when needed</div>
+                <div className="landing-algorithm-chip">Grow the sorted tail</div>
               </div>
 
-              <div className="landing-algorithm-frame-list">
-                {algorithmFrames.map((frame, index) => (
-                  <motion.article
-                    key={frame.label}
-                    className="landing-algorithm-frame"
-                    initial={{ opacity: 0, y: 18 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.45, delay: 0.2 + index * 0.08 }}
-                  >
-                    <div className="landing-algorithm-frame-header">
-                      <div>
-                        <small>{frame.label}</small>
-                        <strong>{frame.title}</strong>
-                      </div>
-                      <span>{frame.note}</span>
+              <AnimatePresence mode="wait">
+                <motion.article
+                  key={currentBubbleFrame.label}
+                  className="landing-algorithm-frame"
+                  initial={{ opacity: 0, y: 18 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -18 }}
+                  transition={{ duration: 0.28, ease: 'easeOut' }}
+                >
+                  <div className="landing-algorithm-frame-header">
+                    <div>
+                      <small>{currentBubbleFrame.label}</small>
+                      <strong>{currentBubbleFrame.title}</strong>
                     </div>
+                    <span>{currentBubbleFrame.note}</span>
+                  </div>
 
-                    <div className="landing-algorithm-row">
-                      {algorithmValues.map((value, valueIndex) => {
-                        const inRange = frame.range.includes(valueIndex)
-                        const isActive = frame.activeIndex === valueIndex
-                        const isFound = frame.foundIndex === valueIndex
+                  <div className="landing-algorithm-row landing-algorithm-row-bubble">
+                    {currentBubbleFrame.values.map((value, valueIndex) => {
+                      const isComparing = currentBubbleFrame.compare.includes(valueIndex)
+                      const isSwapped = currentBubbleFrame.swapped.includes(valueIndex)
+                      const isSorted = currentBubbleFrame.sorted.includes(valueIndex)
 
-                        return (
-                          <div
-                            key={`${frame.label}-${value}`}
-                            className={`landing-algorithm-cell${inRange ? ' is-in-range' : ''}${isActive ? ' is-active' : ''}${isFound ? ' is-found' : ''}`}
-                          >
-                            <span>{value}</span>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </motion.article>
-                ))}
-              </div>
+                      return (
+                        <div
+                          key={`${currentBubbleFrame.label}-${valueIndex}-${value}`}
+                          className={`landing-algorithm-cell${isComparing ? ' is-active' : ''}${isSwapped ? ' is-swapped' : ''}${isSorted ? ' is-found' : ''}`}
+                        >
+                          <span>{value}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </motion.article>
+              </AnimatePresence>
 
               <div className="landing-algorithm-summary">
                 <div className="landing-algorithm-insight glass-panel">
                   <small>Why it clicks here</small>
-                  <strong>You can see the range shrink at every decision.</strong>
+                  <strong>You can watch each comparison and swap happen in order.</strong>
                   <p>
-                    Instead of memorizing pseudocode, learners watch the active middle, the valid window, and the final match update in place.
+                    Instead of memorizing loops abstractly, learners can step through the array and see which pair is active, what swapped, and what is already sorted.
                   </p>
                 </div>
 
                 <div className="landing-algorithm-insight glass-panel">
                   <small>What the site adds</small>
-                  <strong>Lesson guidance, visual playback, and AI review in one flow.</strong>
+                  <strong>Lesson guidance, visual playback, and AI coaching in one flow.</strong>
                   <p>
-                    Start with fundamentals, inspect the algorithm visually, then ask for a hint or a review when you begin writing code yourself.
+                    Start with the concept, step through the behavior visually, and then ask for a hint or review when you begin implementing it yourself.
                   </p>
                 </div>
               </div>
@@ -436,6 +511,84 @@ export default function LandingPage() {
                 <div className="landing-console-line is-emerald">Project blueprint ready: binary-search visualizer.</div>
               </div>
             </motion.article>
+          </div>
+
+          <div className="landing-interactive-panel glass-panel">
+            <div className="landing-section-heading">
+              <div>
+                <p className="eyebrow">Interactive Preview</p>
+                <h2>Switch product modes and feel the interface change.</h2>
+              </div>
+              <p>
+                This gives users a more direct sense of how different parts of AlgoQuest behave: calm instruction, visual reasoning, and creative building.
+              </p>
+            </div>
+
+            <div className="landing-mode-tabs" role="tablist" aria-label="AlgoQuest preview modes">
+              {interactiveModes.map((mode) => (
+                <button
+                  key={mode.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeMode.id === mode.id}
+                  className={`landing-mode-tab${activeMode.id === mode.id ? ' is-active' : ''}`}
+                  onClick={() => setActiveMode(mode)}
+                >
+                  {mode.label}
+                </button>
+              ))}
+            </div>
+
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeMode.id}
+                className="landing-mode-stage"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.22, ease: 'easeOut' }}
+              >
+                <div className="landing-mode-copy">
+                  <small>{activeMode.label} experience</small>
+                  <h3>{activeMode.title}</h3>
+                  <p>{activeMode.copy}</p>
+
+                  <div className="landing-mode-chip-row">
+                    {activeMode.chips.map((chip) => (
+                      <span key={chip} className="landing-mode-chip">{chip}</span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="landing-mode-visual">
+                  <div className="landing-mode-visual-top">
+                    {activeMode.metrics.map((metric) => (
+                      <div key={metric.label} className="landing-mode-metric">
+                        <span>{metric.label}</span>
+                        <strong>{metric.value}</strong>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="landing-mode-visual-body">
+                    <div className="landing-mode-glow" />
+                    <div className="landing-mode-track">
+                      <div className="landing-mode-track-fill" style={{ width: activeMode.id === 'dojo' ? '62%' : activeMode.id === 'lab' ? '78%' : '88%' }} />
+                    </div>
+                    <div className="landing-mode-cards">
+                      <div className="landing-mode-card is-primary">
+                        <strong>{activeMode.label}</strong>
+                        <p>{activeMode.id === 'dojo' ? 'A lesson card with progress and next steps.' : activeMode.id === 'lab' ? 'A visual inspector showing active states and flow.' : 'A blueprint panel ready to turn learning into projects.'}</p>
+                      </div>
+                      <div className="landing-mode-card">
+                        <strong>{activeMode.id === 'dojo' ? 'Hint ready' : activeMode.id === 'lab' ? 'Playback live' : 'Export ready'}</strong>
+                        <p>{activeMode.id === 'dojo' ? 'Feedback appears when you need it.' : activeMode.id === 'lab' ? 'Motion helps each step feel understandable.' : 'The build path stays connected to what you learned.'}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            </AnimatePresence>
           </div>
 
           <div className="landing-feeling-row">

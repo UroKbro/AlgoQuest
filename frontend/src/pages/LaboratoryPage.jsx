@@ -123,6 +123,83 @@ const algorithmVisualizers = {
       return snapshots
     },
   },
+  'bubble-sort': {
+    title: 'Bubble Sort',
+    mode: 'bars',
+    codeLines: [
+      'def bubble_sort(values):',
+      '    n = len(values)',
+      '    for i in range(n):',
+      '        for j in range(0, n - i - 1):',
+      '            if values[j] > values[j + 1]:',
+      '                values[j], values[j + 1] = values[j + 1], values[j]',
+      '    return values',
+    ],
+    complexity: { time: 'O(N^2)', space: 'O(1)' },
+    getStructureState(snapshot) {
+      return {
+        'Comparing': snapshot.comparing ? `${snapshot.comparing[0]} & ${snapshot.comparing[1]}` : 'none',
+        'Sorted Items': snapshot.sortedCount,
+      }
+    },
+    buildSnapshots() {
+      const values = [54, 26, 93, 17, 77, 31, 44, 55, 20]
+      const n = values.length
+      const snapshots = [
+        {
+          line: 1,
+          message: 'Initialize array for bubble sort.',
+          anchorLabel: 'Start',
+          values: [...values],
+          comparing: null,
+          sortedCount: 0,
+        },
+      ]
+
+      for (let i = 0; i < n; i++) {
+        for (let j = 0; j < n - i - 1; j++) {
+          snapshots.push({
+            line: 4,
+            message: `Compare elements at index ${j} and ${j + 1}.`,
+            values: [...values],
+            comparing: [j, j + 1],
+            sortedCount: i,
+          })
+          if (values[j] > values[j + 1]) {
+            let temp = values[j]
+            values[j] = values[j + 1]
+            values[j + 1] = temp
+            snapshots.push({
+              line: 6,
+              message: `Swap elements at index ${j} and ${j + 1}.`,
+              anchorLabel: `Swap ${values[j + 1]} & ${values[j]}`,
+              values: [...values],
+              comparing: [j, j + 1],
+              sortedCount: i,
+            })
+          }
+        }
+        snapshots.push({
+          line: 3,
+          message: `Largest element bubbled to the end.`,
+          values: [...values],
+          comparing: null,
+          sortedCount: i + 1,
+        })
+      }
+
+      snapshots.push({
+        line: 7,
+        message: 'Array is completely sorted.',
+        anchorLabel: 'Done',
+        values: [...values],
+        comparing: null,
+        sortedCount: n,
+      })
+
+      return snapshots
+    },
+  },
   'merge-sort': {
     title: 'Merge Sort',
     mode: 'bars',

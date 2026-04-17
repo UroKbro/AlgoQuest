@@ -1,8 +1,8 @@
 import { NavLink } from 'react-router-dom'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { fetchPathAnalytics, fetchProgressSummary, fetchRealms } from '../api'
 import PageHeader from '../components/PageHeader'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 
 export default function NexusPage() {
   const [state, setState] = useState({
@@ -14,6 +14,8 @@ export default function NexusPage() {
     analytics: null,
     message: '',
   })
+  const [timeRange, setTimeRange] = useState('week')
+  const [activeMetric, setActiveMetric] = useState('activeMinutes')
 
   useEffect(() => {
     let cancelled = false
@@ -52,13 +54,13 @@ export default function NexusPage() {
               visual: { primaryLabel: 'Depth', primaryValue: '3', secondaryLabel: 'Nodes', secondaryValue: '128' }
             },
             weeklyStats: [
-              { day: 'Mon', activeMinutes: 45, logicProblemsSolved: 4 },
-              { day: 'Tue', activeMinutes: 30, logicProblemsSolved: 2 },
-              { day: 'Wed', activeMinutes: 65, logicProblemsSolved: 7 },
-              { day: 'Thu', activeMinutes: 20, logicProblemsSolved: 1 },
-              { day: 'Fri', activeMinutes: 80, logicProblemsSolved: 9 },
-              { day: 'Sat', activeMinutes: 10, logicProblemsSolved: 0 },
-              { day: 'Sun', activeMinutes: 55, logicProblemsSolved: 5 },
+              { day: 'Mon', activeMinutes: 45, logicProblemsSolved: 4, efficiency: 78, focusScore: 82 },
+              { day: 'Tue', activeMinutes: 30, logicProblemsSolved: 2, efficiency: 65, focusScore: 71 },
+              { day: 'Wed', activeMinutes: 65, logicProblemsSolved: 7, efficiency: 88, focusScore: 89 },
+              { day: 'Thu', activeMinutes: 20, logicProblemsSolved: 1, efficiency: 52, focusScore: 60 },
+              { day: 'Fri', activeMinutes: 80, logicProblemsSolved: 9, efficiency: 92, focusScore: 94 },
+              { day: 'Sat', activeMinutes: 10, logicProblemsSolved: 0, efficiency: 40, focusScore: 45 },
+              { day: 'Sun', activeMinutes: 55, logicProblemsSolved: 5, efficiency: 85, focusScore: 87 },
             ],
             focus: {
               label: 'Recursive Depth Mastery',
@@ -66,8 +68,22 @@ export default function NexusPage() {
               recommendedRealm: 'dojo'
             },
             analytics: {
-              strengths: ['Iterative Logic', 'Space Complexity'],
-              frictionPoints: ['Recursion Depth', 'Dynamic Selection']
+              strengths: ['Iterative Logic', 'Space Complexity', 'Pattern Recognition', 'Optimization'],
+              frictionPoints: ['Recursion Depth', 'Dynamic Selection', 'Edge Cases', 'Time Complexity'],
+              masteryRadar: {
+                'Algorithms': 78,
+                'Data Structures': 85,
+                'Problem Solving': 72,
+                'Code Quality': 80,
+                'Performance': 68,
+                'Adaptability': 75
+              },
+              weeklyGate: {
+                score: 82,
+                status: 'completed',
+                puzzlesRequired: 10,
+                codeSnippetsRequired: 5
+              }
             },
             message: error.message,
           })

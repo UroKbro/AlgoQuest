@@ -9,8 +9,8 @@ from fastapi.responses import JSONResponse
 
 from .ai_service import get_ai_provider_status
 from .config import settings as app_settings
-from .db import init_db
 from .logger import log_info, log_error, log_warning
+from .supabase import get_auth_provider
 from .routers import (
     ai,
     auth,
@@ -26,7 +26,25 @@ from .routers import (
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    init_db()
+    auth_provider = get_auth_provider()
+    log_info("Auth provider configured", provider=auth_provider)
+
+    # When using local auth, initialise SQLite and seed the admin account
+    if auth_provider == "local":
+        from . import db
+        from .auth_utils import get_password_hash
+
+        db.init_db()
+        if not db.get_local_user_by_username(app_settings.admin_username):
+            db.create_local_user(
+                app_settings.admin_username,
+                get_password_hash(app_settings.admin_password),
+            )
+            log_info(
+                "Admin account seeded",
+                username=app_settings.admin_username,
+            )
+
     ai_status = get_ai_provider_status()
     if ai_status["provider"] == "gemini":
         log_info(

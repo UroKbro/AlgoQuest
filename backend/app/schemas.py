@@ -239,7 +239,7 @@ class UserLoginRequest(BaseModel):
 
 
 class UserResponse(BaseModel):
-    id: int
+    id: str | int
     username: str
     createdAt: str
 

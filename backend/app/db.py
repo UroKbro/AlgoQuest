@@ -1,199 +1,89 @@
 from __future__ import annotations
 
-import json
 import sqlite3
-from contextlib import contextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 
 from .config import settings
-from .content import LESSONS
-
-
-def get_database_path() -> Path:
-    prefix = "sqlite:///"
-    if not settings.database_url.startswith(prefix):
-        raise ValueError("Only sqlite:/// database URLs are supported")
-
-    raw_path = settings.database_url.removeprefix(prefix)
-    path = Path(raw_path)
-    if not path.is_absolute():
-        path = Path(__file__).resolve().parents[1] / path
-    return path
-
 
 _initialized = False
+_db_path: str | None = None
 
 
-def _connect() -> sqlite3.Connection:
-    path = get_database_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    connection = sqlite3.connect(path)
-    connection.row_factory = sqlite3.Row
-    return connection
-
-
-@contextmanager
-def get_connection() -> sqlite3.Connection:
-    if not _initialized:
-        init_db()
-
-    connection = _connect()
-    try:
-        yield connection
-        connection.commit()
-    finally:
-        connection.close()
+def _get_db_path() -> str:
+    url = settings.database_url
+    if url.startswith("sqlite:///"):
+        return url[len("sqlite:///") :]
+    return "./algoquest.db"
 
 
 def init_db() -> None:
-    global _initialized
+    global _initialized, _db_path
+    if _initialized:
+        return
 
-    connection = _connect()
+    _db_path = _get_db_path()
+    Path(_db_path).parent.mkdir(parents=True, exist_ok=True)
+
+    conn = sqlite3.connect(_db_path)
+    conn.row_factory = sqlite3.Row
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            hashed_password TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        )
+        """
+    )
+    conn.commit()
+    conn.close()
+    _initialized = True
+
+
+def get_connection() -> sqlite3.Connection:
+    if not _initialized:
+        init_db()
+    conn = sqlite3.connect(_db_path)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def create_local_user(username: str, hashed_password: str) -> dict:
+    init_db()
+    conn = get_connection()
     try:
-        connection.executescript(
-            """
-            CREATE TABLE IF NOT EXISTS settings (
-                profile_id TEXT PRIMARY KEY,
-                neon_intensity INTEGER NOT NULL,
-                sound_volume INTEGER NOT NULL,
-                motion_blur INTEGER NOT NULL,
-                reduced_motion INTEGER NOT NULL
-            );
-
-            CREATE TABLE IF NOT EXISTS lesson_progress (
-                profile_id TEXT NOT NULL,
-                lesson_slug TEXT NOT NULL,
-                status TEXT NOT NULL,
-                attempts INTEGER NOT NULL DEFAULT 0,
-                last_code_snapshot TEXT NOT NULL DEFAULT '',
-                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                PRIMARY KEY (profile_id, lesson_slug)
-            );
-
-            CREATE TABLE IF NOT EXISTS weekly_gate_results (
-                profile_id TEXT NOT NULL,
-                week_start TEXT NOT NULL,
-                score INTEGER NOT NULL,
-                strengths_json TEXT NOT NULL,
-                friction_points_json TEXT NOT NULL,
-                completed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                PRIMARY KEY (profile_id, week_start)
-            );
-
-            CREATE TABLE IF NOT EXISTS projects (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                profile_id TEXT NOT NULL,
-                blueprint_slug TEXT,
-                title TEXT NOT NULL,
-                files_json TEXT NOT NULL,
-                architecture_json TEXT NOT NULL,
-                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-            );
-
-            CREATE TABLE IF NOT EXISTS logic_posters (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                profile_id TEXT NOT NULL,
-                source_type TEXT NOT NULL,
-                source_ref TEXT,
-                title TEXT NOT NULL,
-                payload_json TEXT NOT NULL,
-                visibility TEXT NOT NULL DEFAULT 'private',
-                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-            );
-
-            CREATE TABLE IF NOT EXISTS forge_challenges (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                profile_id TEXT NOT NULL,
-                target_realm TEXT NOT NULL,
-                title TEXT NOT NULL,
-                parameters_json TEXT NOT NULL,
-                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-            );
-
-            CREATE TABLE IF NOT EXISTS ai_usage_logs (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                profile_id TEXT NOT NULL,
-                endpoint TEXT NOT NULL,
-                prompt_preview TEXT NOT NULL,
-                status TEXT NOT NULL,
-                latency_ms INTEGER NOT NULL,
-                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-            );
-
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT UNIQUE NOT NULL,
-                hashed_password TEXT NOT NULL,
-                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-            );
-
-            CREATE TABLE IF NOT EXISTS activity_logs (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                profile_id TEXT NOT NULL,
-                event_type TEXT NOT NULL, -- 'heartbeat', 'solve', 'critique'
-                metadata_json TEXT NOT NULL DEFAULT '{}',
-                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-            );
-
-            CREATE TABLE IF NOT EXISTS notifications (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                profile_id TEXT NOT NULL,
-                title TEXT NOT NULL,
-                message TEXT NOT NULL,
-                kind TEXT NOT NULL DEFAULT 'info', -- 'success', 'warning', 'error', 'info'
-                is_read INTEGER NOT NULL DEFAULT 0,
-                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-            );
-            """
+        conn.execute(
+            "INSERT INTO users (username, hashed_password, created_at) VALUES (?, ?, ?)",
+            (username, hashed_password, datetime.now(timezone.utc).isoformat()),
         )
-        _seed_defaults(connection)
-        connection.commit()
-        _initialized = True
+        conn.commit()
+        row = conn.execute(
+            "SELECT * FROM users WHERE username = ?", (username,)
+        ).fetchone()
+        return dict(row)
     finally:
-        connection.close()
+        conn.close()
 
 
-def _seed_defaults(connection: sqlite3.Connection) -> None:
-    from .auth_utils import get_password_hash
+def get_local_user_by_username(username: str) -> dict | None:
+    init_db()
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            "SELECT * FROM users WHERE username = ?", (username,)
+        ).fetchone()
+        return dict(row) if row else None
+    finally:
+        conn.close()
 
-    connection.execute(
-        """
-        INSERT OR IGNORE INTO settings (profile_id, neon_intensity, sound_volume, motion_blur, reduced_motion)
-        VALUES (?, ?, ?, ?, ?)
-        """,
-        ("guest", 72, 40, 24, 0),
-    )
 
-    for lesson in LESSONS:
-        connection.execute(
-            """
-            INSERT OR IGNORE INTO lesson_progress (
-                profile_id, lesson_slug, status, attempts, last_code_snapshot
-            ) VALUES (?, ?, ?, ?, ?)
-            """,
-            ("guest", lesson["slug"], "not_started", 0, ""),
-        )
-
-    connection.execute(
-        """
-        INSERT OR IGNORE INTO weekly_gate_results (
-            profile_id, week_start, score, strengths_json, friction_points_json
-        ) VALUES (?, ?, ?, ?, ?)
-        """,
-        (
-            "guest",
-            "2026-04-13",
-            78,
-            json.dumps(["Loop consistency", "Array scanning"]),
-            json.dumps(["Nested recursion", "Snapshot comparison"]),
-        ),
-    )
-
-    connection.execute(
-        """
-        INSERT OR IGNORE INTO users (username, hashed_password, created_at)
-        VALUES (?, ?, CURRENT_TIMESTAMP)
-        """,
-        (settings.admin_username, get_password_hash(settings.admin_password)),
-    )
+def get_local_user_by_id(user_id: int) -> dict | None:
+    init_db()
+    conn = get_connection()
+    try:
+        row = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+        return dict(row) if row else None
+    finally:
+        conn.close()

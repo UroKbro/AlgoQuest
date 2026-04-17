@@ -29,7 +29,7 @@ async def get_notifications(
     user_id: str | None = Depends(get_current_user_id),
 ) -> NotificationListResponse:
     target_id = user_id if user_id else profile_id
-    items = list_notifications(target_id, limit)
+    items = await list_notifications(target_id, limit)
     return NotificationListResponse(
         items=[NotificationResponse.model_validate(i) for i in items]
     )
@@ -42,5 +42,5 @@ async def read_notification(
     user_id: str | None = Depends(get_current_user_id),
 ):
     target_id = user_id if user_id else profile_id
-    success = mark_notification_read(notification_id, target_id)
+    success = await mark_notification_read(notification_id, target_id)
     return {"status": "ok" if success else "error"}

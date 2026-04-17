@@ -13,7 +13,7 @@ import ForgePage from './pages/ForgePage'
 import PathPage from './pages/PathPage'
 import LandingPage from './pages/LandingPage'
 import AuthPage from './pages/AuthPage'
-import { fetchSettings, updateSettings, fetchNotifications } from './api'
+import { fetchSettings, updateSettings, fetchNotifications, logout } from './api'
 
 const settingsStorageKey = 'algoquest-settings'
 const defaultSettings = {
@@ -61,9 +61,7 @@ export default function App() {
       settings: storedSettings,
     }))
 
-    const profileId = isAuthenticated ? 'me' : 'guest'
-    
-    fetchSettings(profileId)
+    fetchSettings()
       .then(backendSettings => {
         setAppState(current => ({
           ...current,
@@ -85,8 +83,9 @@ export default function App() {
     localStorage.setItem(settingsStorageKey, JSON.stringify(appState.settings))
     applySettingsToDocument(appState.settings)
     
-    const profileId = isAuthenticated ? 'me' : 'guest'
-    updateSettings(appState.settings, profileId).catch(() => {})
+    // Only send the fields the backend expects (strip profileId and any extras)
+    const { neonIntensity, soundVolume, motionBlur, reducedMotion } = appState.settings
+    updateSettings({ neonIntensity, soundVolume, motionBlur, reducedMotion }).catch(() => {})
   }, [appState.settings, isAuthenticated])
 
   function triggerNotification(title, message, type = 'info') {
@@ -111,7 +110,7 @@ export default function App() {
         <Route path="/auth" element={!isAuthenticated ? <AuthPage /> : <Navigate to="/" />} />
 
         {/* Protected Application Shell */}
-        <Route element={isAuthenticated ? <AppLayout appState={appState} /> : <Navigate to="/landing" />}>
+        <Route element={isAuthenticated ? <AppLayout appState={appState} onLogout={() => { logout(); window.location.href = '/landing' }} /> : <Navigate to="/landing" />}>
           <Route path="/" element={<NexusPage />} />
           <Route path="/dojo" element={<DojoPage onNotify={triggerNotification} />} />
           <Route path="/laboratory" element={<LaboratoryPage onNotify={triggerNotification} />} />
