@@ -9,6 +9,8 @@ frontend/.env
 node_modules/
 npm-debug.log
 yarn-error.log
+yarn.log
+.eslintcache
 
 # Vite/Frontend Builds
 frontend/dist/
@@ -22,6 +24,7 @@ __pycache__/
 backend/.venv/
 backend/venv/
 backend/.pytest_cache/
+.ruff_cache/
 
 # Databases
 *.db
@@ -29,6 +32,9 @@ backend/.pytest_cache/
 backend/data.db
 backend/algoquest.db
 
-# OS Files
+# IDEs & OS Files
+.vscode/
+.idea/
 .DS_Store
 Thumbs.db
+*.log
