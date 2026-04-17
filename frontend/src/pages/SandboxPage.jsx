@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { realmConfig } from '../appConfig'
 import PageHeader from '../components/PageHeader'
 import { fetchSimulations } from '../api'
@@ -12,6 +13,29 @@ const PRESETS = [
   { label: 'Galaxy',       particleCount: 8000, stiffness: 50, friction: 1,  particleSize: 1, repulsion: 8,  gravity: 'center', colorMode: 'velocity',  sabotage: false },
   { label: 'Chaos Storm',  particleCount: Math.floor(Math.random() * 6000) + 2000, stiffness: Math.floor(Math.random() * 100), friction: Math.floor(Math.random() * 20), particleSize: Math.ceil(Math.random() * 4), repulsion: Math.floor(Math.random() * 20), gravity: ['center', 'bottom', 'none'][Math.floor(Math.random() * 3)], colorMode: 'random', sabotage: true },
 ]
+
+const SIMULATION_PROFILES = {
+  'boids-swarm': {
+    defaults: { particleCount: 2000, stiffness: 42, friction: 4, particleSize: 2, repulsion: 5, gravity: 'center', colorMode: 'solid' },
+    guide: 'free swarm',
+  },
+  'raft-failover': {
+    defaults: { particleCount: 1800, stiffness: 58, friction: 6, particleSize: 2, repulsion: 4, gravity: 'none', colorMode: 'velocity' },
+    guide: 'cluster election',
+  },
+  'vortex-ring': {
+    defaults: { particleCount: 2600, stiffness: 74, friction: 3, particleSize: 2, repulsion: 6, gravity: 'center', colorMode: 'velocity' },
+    guide: 'orbital spin',
+  },
+  'pulse-lattice': {
+    defaults: { particleCount: 1600, stiffness: 32, friction: 8, particleSize: 2, repulsion: 3, gravity: 'none', colorMode: 'solid' },
+    guide: 'grid pulse',
+  },
+  'attractor-map': {
+    defaults: { particleCount: 2200, stiffness: 46, friction: 4, particleSize: 2, repulsion: 5, gravity: 'none', colorMode: 'random' },
+    guide: 'split field',
+  },
+}
 
 /* ───────────────────────────── Helpers ───────────────────────────── */
 
@@ -32,8 +56,10 @@ function hslFromVelocity(speed, mode) {
 /* ──────────────────────── Enhanced Particle ──────────────────────── */
 
 class Particle {
-  constructor(canvas) {
+  constructor(canvas, index = 0, total = 1) {
     this.canvas = canvas
+    this.index = index
+    this.total = total
     this.x = Math.random() * canvas.width
     this.y = Math.random() * canvas.height
     this.vx = (Math.random() - 0.5) * 2
@@ -41,13 +67,18 @@ class Particle {
     this.color = '#A855F7'
     this.trail = []
     this.maxTrailLength = 6
+    const cols = Math.max(1, Math.round(Math.sqrt(total)))
+    const rows = Math.max(1, Math.ceil(total / cols))
+    this.gridX = ((index % cols) + 0.5) * (canvas.width / cols)
+    this.gridY = (Math.floor(index / cols) + 0.5) * (canvas.height / rows)
+    this.clusterGroup = index % 3
   }
 
   get speed() {
     return Math.sqrt(this.vx * this.vx + this.vy * this.vy)
   }
 
-  update(stiffness, friction, mouse, repulsion = 5, gravity = 'center') {
+  update(stiffness, friction, mouse, repulsion = 5, gravity = 'center', pointerMode = 'repel', simulationSlug = 'boids-swarm', now = 0, isSabotaged = false) {
     // Friction
     this.vx *= (1 - friction / 100)
     this.vy *= (1 - friction / 100)
@@ -59,9 +90,57 @@ class Particle {
       const dist = Math.sqrt(dxm * dxm + dym * dym)
       if (dist < 100) {
         const force = (100 - dist) / 100
-        this.vx += (dxm / dist) * force * repulsion * 2
-        this.vy += (dym / dist) * force * repulsion * 2
+        const direction = pointerMode === 'attract' ? -1 : 1
+        this.vx += direction * (dxm / dist) * force * repulsion * 2
+        this.vy += direction * (dym / dist) * force * repulsion * 2
       }
+    }
+
+    if (simulationSlug === 'vortex-ring') {
+      const cx = this.canvas.width / 2
+      const cy = this.canvas.height / 2
+      const dx = this.x - cx
+      const dy = this.y - cy
+      const distance = Math.max(1, Math.sqrt(dx * dx + dy * dy))
+      const targetRadius = Math.min(this.canvas.width, this.canvas.height) * 0.28
+      const radialForce = (targetRadius - distance) * 0.0007 * stiffness
+      const swirl = (isSabotaged ? -1 : 1) * (0.008 + stiffness / 12000)
+      this.vx += (-dy / distance) * swirl * distance + (dx / distance) * radialForce
+      this.vy += (dx / distance) * swirl * distance + (dy / distance) * radialForce
+    }
+
+    if (simulationSlug === 'pulse-lattice') {
+      const pulse = Math.sin(now / 380 + this.index * 0.08) * 14
+      const targetX = this.gridX + pulse
+      const targetY = this.gridY + Math.cos(now / 420 + this.index * 0.06) * 10
+      this.vx += (targetX - this.x) * 0.0032 * (1 + stiffness / 100)
+      this.vy += (targetY - this.y) * 0.0032 * (1 + stiffness / 100)
+    }
+
+    if (simulationSlug === 'raft-failover') {
+      const anchors = [
+        { x: this.canvas.width * 0.25, y: this.canvas.height * 0.34 },
+        { x: this.canvas.width * 0.5, y: this.canvas.height * (isSabotaged ? 0.78 : 0.26) },
+        { x: this.canvas.width * 0.75, y: this.canvas.height * 0.34 },
+      ]
+      const leaderIndex = isSabotaged ? 2 : 1
+      const anchor = anchors[this.clusterGroup]
+      const leader = anchors[leaderIndex]
+      this.vx += (anchor.x - this.x) * 0.0024 * (1 + stiffness / 100)
+      this.vy += (anchor.y - this.y) * 0.0024 * (1 + stiffness / 100)
+      this.vx += (leader.x - this.x) * 0.0009
+      this.vy += (leader.y - this.y) * 0.0009
+    }
+
+    if (simulationSlug === 'attractor-map') {
+      const t = now / 800
+      const attractors = [
+        { x: this.canvas.width * 0.32 + Math.cos(t) * 80, y: this.canvas.height * 0.45 + Math.sin(t * 1.2) * 70 },
+        { x: this.canvas.width * 0.68 + Math.cos(t + Math.PI) * 80, y: this.canvas.height * 0.55 + Math.sin(t * 1.2 + Math.PI) * 70 },
+      ]
+      const target = attractors[this.index % 2]
+      this.vx += (target.x - this.x) * 0.0028 * (1 + stiffness / 100)
+      this.vy += (target.y - this.y) * 0.0028 * (1 + stiffness / 100)
     }
 
     // Gravity / attraction
@@ -120,6 +199,10 @@ class Particle {
       ctx.fillRect(this.x, this.y, size, size)
     }
   }
+}
+
+function createParticles(canvas, count) {
+  return Array.from({ length: count }, (_, index) => new Particle(canvas, index, count))
 }
 
 /* ────────────────────── Mini Sparkline Component ─────────────────── */
@@ -196,9 +279,11 @@ function StyledSlider({ label, value, min, max, step = 1, unit = '', color = '#A
 
 /* ════════════════════════ MAIN COMPONENT ═════════════════════════ */
 
-export default function SandboxPage() {
+export default function SandboxPage({ onNotify }) {
   const realm = realmConfig.sandbox
   const canvasRef = useRef(null)
+  const location = useLocation()
+  const navigate = useNavigate()
 
   const [simulationState, setSimulationState] = useState({ status: 'loading', items: [], message: '' })
   const [activeSimIndex, setActiveSimIndex] = useState(0)
@@ -214,8 +299,10 @@ export default function SandboxPage() {
   })
 
   const [isSabotaged, setIsSabotaged] = useState(false)
+  const [isPaused, setIsPaused] = useState(false)
   const [showConnections, setShowConnections] = useState(false)
   const [showTrails, setShowTrails] = useState(false)
+  const [pointerMode, setPointerMode] = useState('repel')
 
   const particles = useRef([])
   const mouse = useRef({ x: null, y: null })
@@ -259,6 +346,27 @@ export default function SandboxPage() {
                 summary: 'Stress consensus timing with injected leader failures.',
                 description: 'Simulates a Raft consensus cluster where you can inject leader failures and observe how the system re-elects a leader and reaches consensus under stress.',
               },
+              {
+                slug: 'vortex-ring',
+                name: 'Vortex Ring',
+                scale: 'orbital',
+                summary: 'Drive the field into rotational flow around a glowing central core.',
+                description: 'Particles are pulled into a rotating ring, balancing tangential spin with radial correction so the swarm forms a visible orbital band.',
+              },
+              {
+                slug: 'pulse-lattice',
+                name: 'Pulse Lattice',
+                scale: 'grid',
+                summary: 'Snap particles toward a living grid that breathes in synchronized waves.',
+                description: 'Each particle locks onto a grid slot and oscillates with nearby cells, turning the canvas into a pulsing computational fabric.',
+              },
+              {
+                slug: 'attractor-map',
+                name: 'Dual Attractor Map',
+                scale: 'field',
+                summary: 'Split the swarm between two moving attractors and watch the paths interfere.',
+                description: 'Two drifting attractors pull alternating particles across the stage, producing braided trajectories and unstable crossings.',
+              },
             ],
             message: error.message,
           })
@@ -269,14 +377,91 @@ export default function SandboxPage() {
   }, [])
 
   const activeSimulation = simulationState.items[activeSimIndex] ?? simulationState.items[0]
+  const activeChallenge = location.state?.challenge ?? null
+  const activeProfile = SIMULATION_PROFILES[activeSimulation?.slug] ?? SIMULATION_PROFILES['boids-swarm']
   const chaosLevel = isSabotaged ? 'High' : params.friction > 10 ? 'Moderate' : 'Stable'
+  const challengeChecklist = useMemo(() => {
+    if (!activeChallenge) {
+      return []
+    }
+
+    return [
+      'Read the prompt and identify the failure mode or optimization target.',
+      `Use the canvas controls to explore the ${activeSimulation?.name ?? 'active'} simulation under different conditions.`,
+      'Capture the pattern you observe, then explain the smallest change that would improve the outcome.',
+    ]
+  }, [activeChallenge, activeSimulation])
+  const stageCards = useMemo(() => ([
+    { label: 'Interaction', value: `${pointerMode} cursor` },
+    { label: 'Visual Layer', value: showConnections ? 'network mesh' : showTrails ? 'motion trails' : 'particle field' },
+    { label: 'Motion State', value: isPaused ? 'paused' : 'live render' },
+    { label: 'Algorithm', value: activeProfile.guide },
+  ]), [pointerMode, showConnections, showTrails, isPaused, activeProfile.guide])
 
   /* ── Init particles when count changes ── */
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
-    particles.current = Array.from({ length: params.particleCount }, () => new Particle(canvas))
+    particles.current = createParticles(canvas, params.particleCount)
   }, [params.particleCount])
+
+  useEffect(() => {
+    if (!activeSimulation) {
+      return
+    }
+
+    setParams(activeProfile.defaults)
+    setIsPaused(false)
+    setShowConnections(activeSimulation.slug === 'raft-failover' || activeSimulation.slug === 'attractor-map')
+    setShowTrails(activeSimulation.slug === 'vortex-ring' || activeSimulation.slug === 'attractor-map')
+    setPointerMode(activeSimulation.slug === 'pulse-lattice' ? 'attract' : 'repel')
+  }, [activeSimulation, activeProfile])
+
+  useEffect(() => {
+    if (!activeChallenge || simulationState.items.length === 0) {
+      return
+    }
+
+    const simulationByRealm = {
+      dojo: 'pulse-lattice',
+      laboratory: 'boids-swarm',
+      sandbox: 'attractor-map',
+      world: 'raft-failover',
+      forge: 'vortex-ring',
+    }
+
+    const desiredSlug = simulationByRealm[activeChallenge.targetRealm] ?? 'boids-swarm'
+    const matchIndex = simulationState.items.findIndex((item) => item.slug === desiredSlug)
+    if (matchIndex >= 0) {
+      setActiveSimIndex(matchIndex)
+    }
+  }, [activeChallenge, simulationState.items])
+
+  const reseedParticles = () => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    particles.current = createParticles(canvas, params.particleCount)
+  }
+
+  const handleImpulseBurst = () => {
+    particles.current.forEach((particle) => {
+      particle.vx += (Math.random() - 0.5) * 10
+      particle.vy += (Math.random() - 0.5) * 10
+    })
+  }
+
+  const handleCompleteChallenge = () => {
+    if (!activeChallenge) {
+      return
+    }
+
+    onNotify?.('Challenge Logged', `${activeChallenge.title} completed in Sandbox.`, 'success')
+    navigate('/forge', {
+      state: {
+        completedChallengeId: activeChallenge.id,
+      },
+    })
+  }
 
   /* ── Main render loop ── */
   useEffect(() => {
@@ -342,7 +527,19 @@ export default function SandboxPage() {
 
       // Update & draw particles
       particles.current.forEach(p => {
-        p.update(params.stiffness, params.friction, mouse.current, params.repulsion, params.gravity)
+        if (!isPaused) {
+          p.update(
+            params.stiffness,
+            params.friction,
+            mouse.current,
+            params.repulsion,
+            params.gravity,
+            pointerMode,
+            activeSimulation?.slug,
+            now,
+            isSabotaged,
+          )
+        }
 
         if (isSabotaged && Math.random() > 0.98) {
           // Visual glitch sabotage
@@ -367,7 +564,7 @@ export default function SandboxPage() {
 
     animationId = requestAnimationFrame(render)
     return () => cancelAnimationFrame(animationId)
-  }, [params, isSabotaged, showConnections, showTrails])
+  }, [params, isSabotaged, showConnections, showTrails, isPaused, pointerMode, activeSimulation])
 
   /* ── Preset application ── */
   const applyPreset = (preset) => {
@@ -409,15 +606,17 @@ export default function SandboxPage() {
   /* ════════════════════════ RENDER ═════════════════════════════════ */
   return (
     <>
-      <PageHeader
-        eyebrow={realm.eyebrow}
-        title={realm.name}
-        description="Experimental systems and large-scale simulation. Break the logic, stress-test the swarm, and observe emergent chaos."
-        accent={realm.accent}
-      />
+      <div className="sandbox-page-header">
+        <PageHeader
+          eyebrow={realm.eyebrow}
+          title={realm.name}
+          description="Dense simulation workspace for live tuning, failure drills, and emergent behavior checks."
+          accent={realm.accent}
+        />
+      </div>
 
       {/* ── Preset Buttons ── */}
-      <section className="sandbox-presets" style={{ display: 'flex', gap: 10, padding: '0 1.5rem 1rem', flexWrap: 'wrap' }}>
+      <section className="sandbox-presets">
         {PRESETS.map((preset) => (
           <motion.button
             key={preset.label}
@@ -441,7 +640,7 @@ export default function SandboxPage() {
         ))}
       </section>
 
-      <section className="sandbox-layout">
+      <section className="sandbox-layout sandbox-viewport">
         {/* ─────────── Canvas Panel ─────────── */}
         <article className="glass-panel visualizer-panel sandbox-canvas-panel">
           <div className="panel-heading">
@@ -452,14 +651,36 @@ export default function SandboxPage() {
             <span className="mini-pill">{params.particleCount} Nodes Active</span>
           </div>
 
+          <div className="sandbox-stage-strip">
+            {stageCards.map((card) => (
+              <div key={card.label} className="sandbox-stage-card">
+                <span>{card.label}</span>
+                <strong>{card.value}</strong>
+              </div>
+            ))}
+          </div>
+
           {/* Canvas toolbar */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '0 0 0.6rem', flexWrap: 'wrap' }}>
+          <div className="sandbox-toolbar">
             <span style={{
               fontFamily: 'monospace', fontSize: '0.78rem', color: displayFps >= 40 ? '#22c55e' : displayFps >= 20 ? '#eab308' : '#ef4444',
               background: 'rgba(0,0,0,0.4)', padding: '3px 8px', borderRadius: 4,
             }}>
               {displayFps} FPS
             </span>
+
+            <button
+              type="button"
+              onClick={() => setIsPaused((current) => !current)}
+              style={{
+                fontSize: '0.75rem', padding: '3px 10px', borderRadius: 4, cursor: 'pointer',
+                border: isPaused ? '1px solid #22c55e' : '1px solid rgba(255,255,255,0.12)',
+                background: isPaused ? 'rgba(34,197,94,0.16)' : 'rgba(255,255,255,0.04)',
+                color: isPaused ? '#86efac' : '#888',
+              }}
+            >
+              {isPaused ? 'Resume' : 'Pause'}
+            </button>
 
             <button
               type="button"
@@ -487,6 +708,45 @@ export default function SandboxPage() {
               Trails {showTrails ? 'ON' : 'OFF'}
             </button>
 
+            <button
+              type="button"
+              onClick={() => setPointerMode((current) => current === 'repel' ? 'attract' : 'repel')}
+              style={{
+                fontSize: '0.75rem', padding: '3px 10px', borderRadius: 4, cursor: 'pointer',
+                border: pointerMode === 'attract' ? '1px solid #22c55e' : '1px solid rgba(255,255,255,0.12)',
+                background: pointerMode === 'attract' ? 'rgba(34,197,94,0.16)' : 'rgba(255,255,255,0.04)',
+                color: pointerMode === 'attract' ? '#86efac' : '#888',
+              }}
+            >
+              Cursor {pointerMode === 'attract' ? 'Attract' : 'Repel'}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleImpulseBurst}
+              style={{
+                fontSize: '0.75rem', padding: '3px 10px', borderRadius: 4, cursor: 'pointer',
+                border: '1px solid rgba(245,158,11,0.22)',
+                background: 'rgba(245,158,11,0.1)',
+                color: '#fcd34d',
+              }}
+            >
+              Burst
+            </button>
+
+            <button
+              type="button"
+              onClick={reseedParticles}
+              style={{
+                fontSize: '0.75rem', padding: '3px 10px', borderRadius: 4, cursor: 'pointer',
+                border: '1px solid rgba(255,255,255,0.12)',
+                background: 'rgba(255,255,255,0.04)',
+                color: '#aaa',
+              }}
+            >
+              Reset Field
+            </button>
+
             <motion.button
               type="button"
               whileHover={{ scale: 1.05 }}
@@ -503,23 +763,82 @@ export default function SandboxPage() {
             </motion.button>
           </div>
 
-          <canvas
-            ref={canvasRef}
-            width={800}
-            height={500}
-            className={`sandbox-canvas${isSabotaged ? ' is-glitched' : ''}`}
-            onMouseMove={(e) => {
-              const rect = e.currentTarget.getBoundingClientRect()
-              mouse.current = { x: e.clientX - rect.left, y: e.clientY - rect.top }
-            }}
-            onMouseLeave={() => {
-              mouse.current = { x: null, y: null }
-            }}
-          />
+          <div className="sandbox-stage-shell">
+            <canvas
+              ref={canvasRef}
+              width={800}
+              height={500}
+              className={`sandbox-canvas${isSabotaged ? ' is-glitched' : ''}`}
+              onMouseMove={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect()
+                mouse.current = { x: e.clientX - rect.left, y: e.clientY - rect.top }
+              }}
+              onMouseLeave={() => {
+                mouse.current = { x: null, y: null }
+              }}
+            />
+
+            <div className="sandbox-stage-overlay">
+              <div className="sandbox-overlay-card">
+                <span>Cursor Field</span>
+                <strong>{pointerMode === 'repel' ? 'Pushes swarm away' : 'Pulls swarm inward'}</strong>
+              </div>
+              <div className="sandbox-overlay-card">
+                <span>Chaos State</span>
+                <strong>{chaosLevel}</strong>
+              </div>
+              <div className="sandbox-overlay-card">
+                <span>Guide</span>
+                <strong>Move across the stage to bend the flow</strong>
+              </div>
+            </div>
+          </div>
         </article>
 
         {/* ─────────── Side Column ─────────── */}
-        <aside className="lab-side-column">
+        <aside className="lab-side-column sandbox-side-column">
+
+          {activeChallenge && (
+            <article className="glass-panel content-card sandbox-challenge-card accent-amber">
+              <div className="panel-heading">
+                <div>
+                  <p className="card-tag text-amber">Active Challenge</p>
+                  <h3>{activeChallenge.title}</h3>
+                </div>
+                <span className="mini-pill">{activeChallenge.parameters?.difficulty ?? 'Diagnostic'}</span>
+              </div>
+
+              <p className="status-copy">{activeChallenge.parameters?.body ?? 'Work through the challenge prompt inside the sandbox.'}</p>
+
+              <div className="sandbox-challenge-meta">
+                <span className="mini-pill">Origin: {activeChallenge.targetRealm}</span>
+                {activeChallenge.parameters?.estimatedMinutes ? <span className="mini-pill">~{activeChallenge.parameters.estimatedMinutes} min</span> : null}
+                {activeChallenge.parameters?.xp ? <span className="mini-pill text-purple">+{activeChallenge.parameters.xp} XP</span> : null}
+              </div>
+
+              <div className="sandbox-guide-card sandbox-challenge-task-card">
+                <strong>What to do</strong>
+                <div className="sandbox-challenge-list">
+                  {challengeChecklist.map((item) => (
+                    <p key={item}>{item}</p>
+                  ))}
+                </div>
+              </div>
+
+              <div className="sandbox-challenge-actions">
+                <button type="button" className="action-button action-button-primary" onClick={handleCompleteChallenge}>
+                  Complete Challenge
+                </button>
+                <button
+                  type="button"
+                  className="action-button"
+                  onClick={() => navigate('/forge')}
+                >
+                  Back to Forge
+                </button>
+              </div>
+            </article>
+          )}
 
           {/* ── Enhanced Chaos Panel ── */}
           <article className="glass-panel content-card accent-purple">
@@ -533,7 +852,30 @@ export default function SandboxPage() {
 
             <p className="status-copy">{activeSimulation?.summary ?? 'Tune the active simulation and inspect how the swarm responds in real time.'}</p>
 
-            <div className="settings-stack">
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
+              {simulationState.items.map((sim, idx) => (
+                <motion.button
+                  key={sim.slug}
+                  type="button"
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => setActiveSimIndex(idx)}
+                  style={{
+                    fontSize: '0.74rem',
+                    padding: '5px 10px',
+                    borderRadius: 9999,
+                    cursor: 'pointer',
+                    border: activeSimIndex === idx ? '1px solid #A855F7' : '1px solid rgba(255,255,255,0.1)',
+                    background: activeSimIndex === idx ? 'rgba(168,85,247,0.18)' : 'rgba(255,255,255,0.03)',
+                    color: activeSimIndex === idx ? '#d4b5ff' : '#999',
+                  }}
+                >
+                  {sim.name}
+                </motion.button>
+              ))}
+            </div>
+
+            <div className="settings-stack sandbox-settings-stack">
               <StyledSlider
                 label="Swarm Density"
                 value={params.particleCount}
@@ -642,8 +984,31 @@ export default function SandboxPage() {
             {simulationState.message ? <p className="status-copy">Using local simulation metadata because the API request failed: {simulationState.message}</p> : null}
           </article>
 
+          <article className="glass-panel content-card sandbox-compact-card">
+            <div className="panel-heading">
+              <div>
+                <p className="card-tag text-amber">Experiment Guide</p>
+                <h3>Live Scenarios</h3>
+              </div>
+            </div>
+            <div className="sandbox-guide-grid sandbox-guide-grid-compact">
+              <div className="sandbox-guide-card">
+                <strong>Pressure Test</strong>
+                <p>Raise density, turn on connections, then trigger a burst to inspect how quickly the field restabilizes.</p>
+              </div>
+              <div className="sandbox-guide-card">
+                <strong>Orbit Mode</strong>
+                <p>Switch the cursor to attract, use center gravity, and enable trails to sculpt spiral motion paths.</p>
+              </div>
+              <div className="sandbox-guide-card">
+                <strong>Failure Drill</strong>
+                <p>Toggle structural sabotage with low friction and random color mode to force a noisy recovery state.</p>
+              </div>
+            </div>
+          </article>
+
           {/* ── Enhanced Telemetry Panel ── */}
-          <article className="glass-panel content-card">
+          <article className="glass-panel content-card sandbox-compact-card">
             <div className="panel-heading">
               <div>
                 <p className="card-tag text-cyan">Performance Telemetry</p>
@@ -693,19 +1058,19 @@ export default function SandboxPage() {
             </dl>
 
             {/* FPS Sparkline */}
-            {fpsData.length > 2 && (
-              <div style={{ marginTop: 12 }}>
-                <p style={{ fontSize: '0.72rem', color: '#888', marginBottom: 4 }}>FPS over time</p>
-                <Sparkline data={fpsData} width={220} height={32} color={displayFps >= 40 ? '#22c55e' : displayFps >= 20 ? '#eab308' : '#ef4444'} />
-              </div>
-            )}
-          </article>
+             {fpsData.length > 2 && (
+               <div style={{ marginTop: 12 }}>
+                 <p style={{ fontSize: '0.72rem', color: '#888', marginBottom: 4 }}>FPS over time</p>
+                 <Sparkline data={fpsData} width={180} height={28} color={displayFps >= 40 ? '#22c55e' : displayFps >= 20 ? '#eab308' : '#ef4444'} />
+               </div>
+             )}
+           </article>
 
           {/* ── Simulation Metadata Panel ── */}
           <AnimatePresence>
             {simulationState.items.length > 0 && (
               <motion.article
-                className="glass-panel content-card"
+                className="glass-panel content-card sandbox-compact-card"
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -12 }}
@@ -714,7 +1079,7 @@ export default function SandboxPage() {
                 <div className="panel-heading">
                   <div>
                     <p className="card-tag text-purple">Simulation Metadata</p>
-                    <h3>Loaded Simulations</h3>
+                    <h3>Active Brief</h3>
                   </div>
                   <span className="mini-pill">{simulationState.items.length} available</span>
                 </div>

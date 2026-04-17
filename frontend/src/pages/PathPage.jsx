@@ -347,14 +347,6 @@ const BadgeCard = ({ badge, unlocked }) => (
   </motion.div>
 )
 
-/* ──────────────────────────── Weekly Timeline Node ───────────────────────── */
-const weeklyHistory = [
-  { week: 'W1', focus: 'Loop Patterns', score: 64, status: 'completed' },
-  { week: 'W2', focus: 'Array Scans', score: 71, status: 'completed' },
-  { week: 'W3', focus: 'Recursion Intro', score: 73, status: 'completed' },
-  { week: 'W4', focus: 'Recursive Depth', score: 78, status: 'active' },
-]
-
 /* ──────────────────────────── Main Page ──────────────────────────────────── */
 export default function PathPage() {
   const realm = realmConfig.path
@@ -371,29 +363,7 @@ export default function PathPage() {
         setMessage('')
       })
       .catch((error) => {
-        // Fallback mock
-        setData({
-          weeklyFocus: 'Recursive Depth',
-          strengths: ['Loop consistency', 'Array scanning', 'State cleanup'],
-          frictionPoints: [
-            'Nested recursion',
-            'Snapshot comparison',
-            'Graph traversal setup',
-          ],
-          masteryRadar: {
-            Logic: 78,
-            Syntax: 72,
-            Efficiency: 61,
-            Projects: 44,
-            Speed: 67,
-          },
-          weeklyGate: {
-            score: 78,
-            strengths: ['Loop consistency', 'Array scanning'],
-            frictionPoints: ['Nested recursion', 'Snapshot comparison'],
-          },
-        })
-        setStatus('ready')
+        setStatus('error')
         setMessage(error.message)
       })
   }, [])
@@ -409,6 +379,17 @@ export default function PathPage() {
       </motion.p>
     )
 
+  if (status === 'error')
+    return (
+      <motion.p
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        style={{ padding: 40, textAlign: 'center', color: '#ef4444' }}
+      >
+        Unable to load Path analytics: {message}
+      </motion.p>
+    )
+
   const radarData = data?.masteryRadar ?? {}
   const radarValues = Object.values(radarData)
   const radarKeys = Object.keys(radarData)
@@ -417,6 +398,7 @@ export default function PathPage() {
   const frictionPoints = data?.frictionPoints ?? []
   const weeklyGateStrengths = data?.weeklyGate?.strengths ?? []
   const weeklyGateFriction = data?.weeklyGate?.frictionPoints ?? []
+  const weeklyHistory = data?.weeklyHistory ?? []
 
   const overallMastery =
     radarValues.length > 0
@@ -618,45 +600,50 @@ export default function PathPage() {
             </div>
 
             {/* Focus History Timeline */}
-            <div
-              style={{
-                display: 'flex',
-                gap: 6,
-                marginBottom: 16,
-                overflowX: 'auto',
-                padding: '4px 0',
-              }}
-            >
-              {weeklyHistory.map((w, i) => (
-                <motion.div
-                  key={w.week}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.08 }}
-                  style={{
-                    flex: '0 0 auto',
-                    padding: '6px 12px',
-                    borderRadius: 8,
-                    background:
-                      w.status === 'active'
-                        ? 'rgba(168,85,247,0.18)'
-                        : 'rgba(255,255,255,0.03)',
-                    border:
-                      w.status === 'active'
-                        ? '1px solid rgba(168,85,247,0.4)'
-                        : '1px solid rgba(255,255,255,0.06)',
-                    fontSize: 10,
-                    color: w.status === 'active' ? '#c084fc' : 'rgba(255,255,255,0.4)',
-                    fontWeight: 600,
-                    textAlign: 'center',
-                    lineHeight: 1.5,
-                  }}
-                >
-                  <div>{w.week}</div>
-                  <div style={{ fontSize: 9, opacity: 0.7 }}>{w.focus}</div>
-                </motion.div>
-              ))}
-            </div>
+            {weeklyHistory.length ? (
+              <div
+                style={{
+                  display: 'flex',
+                  gap: 6,
+                  marginBottom: 16,
+                  overflowX: 'auto',
+                  padding: '4px 0',
+                }}
+              >
+                {weeklyHistory.map((w, i) => (
+                  <motion.div
+                    key={`${w.week}-${w.focus}`}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.08 }}
+                    style={{
+                      flex: '0 0 auto',
+                      padding: '6px 12px',
+                      borderRadius: 8,
+                      background:
+                        w.status === 'active'
+                          ? 'rgba(168,85,247,0.18)'
+                          : 'rgba(255,255,255,0.03)',
+                      border:
+                        w.status === 'active'
+                          ? '1px solid rgba(168,85,247,0.4)'
+                          : '1px solid rgba(255,255,255,0.06)',
+                      fontSize: 10,
+                      color:
+                        w.status === 'active'
+                          ? '#c084fc'
+                          : 'rgba(255,255,255,0.4)',
+                      fontWeight: 600,
+                      textAlign: 'center',
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    <div>{w.week}</div>
+                    <div style={{ fontSize: 9, opacity: 0.7 }}>{w.focus || '—'}</div>
+                  </motion.div>
+                ))}
+              </div>
+            ) : null}
 
             <div className="telem-row-stack">
               <div className="telem-row">
@@ -726,12 +713,7 @@ export default function PathPage() {
                 </div>
               ))}
             </div>
-            {message ? (
-              <p className="status-copy">
-                Showing fallback analytics because the API request failed:{' '}
-                {message}
-              </p>
-            ) : null}
+            {message ? <p className="status-copy">{message}</p> : null}
           </article>
 
           {/* ─── Enhanced Strengths ─── */}

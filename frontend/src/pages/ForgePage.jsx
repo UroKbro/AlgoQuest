@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { realmConfig } from '../appConfig'
 import PageHeader from '../components/PageHeader'
-import { fetchChallenges, fetchPosters } from '../api'
+import { createPoster, fetchChallenges, fetchPosters } from '../api'
 
 /* ── helpers ─────────────────────────────────────────────────── */
 
@@ -72,6 +72,178 @@ const DIFFICULTY_COLORS = {
 
 const PROGRESS_STATES = ['not started', 'in progress', 'completed']
 
+const SAMPLE_POSTERS = [
+  {
+    id: 'sample-poster-1',
+    title: 'Binary Tree Radial',
+    payload: { summary: 'Layered poster showing node depth, branch balance, and red-black recoloring checkpoints.' },
+    createdAt: new Date(Date.now() - 86400000).toISOString(),
+    sourceType: 'algorithm',
+    visibility: 'public',
+  },
+  {
+    id: 'sample-poster-2',
+    title: 'Pathfinder v1',
+    payload: { summary: 'A navigation poster comparing A* frontier expansion against Dijkstra over the same grid.' },
+    createdAt: new Date(Date.now() - 172800000).toISOString(),
+    sourceType: 'graph',
+    visibility: 'private',
+  },
+  {
+    id: 'sample-poster-3',
+    title: 'Sort Spectrum',
+    payload: { summary: 'Comparative visual of six sorting algorithms with swap density and stability notes.' },
+    createdAt: new Date(Date.now() - 3600000).toISOString(),
+    sourceType: 'manual',
+    visibility: 'public',
+  },
+  {
+    id: 'sample-poster-4',
+    title: 'Recursion Stack Bloom',
+    payload: { summary: 'Posterized call-stack bloom showing recursive descent, base case, and unwind collapse.' },
+    createdAt: new Date(Date.now() - 5400000).toISOString(),
+    sourceType: 'trace',
+    visibility: 'public',
+  },
+  {
+    id: 'sample-poster-5',
+    title: 'Consensus Failure Map',
+    payload: { summary: 'Cluster-style poster tracing a leader election failure, quorum recovery, and message delay pockets.' },
+    createdAt: new Date(Date.now() - 21600000).toISOString(),
+    sourceType: 'snapshot',
+    visibility: 'private',
+  },
+  {
+    id: 'sample-poster-6',
+    title: 'Memory Aliasing Study',
+    payload: { summary: 'A concept poster capturing how two names track the same list object after mutation.' },
+    createdAt: new Date(Date.now() - 43200000).toISOString(),
+    sourceType: 'algorithm',
+    visibility: 'public',
+  },
+]
+
+const SAMPLE_CHALLENGES = [
+  {
+    id: 'sample-challenge-1',
+    title: 'Bubble Burst',
+    targetRealm: 'dojo',
+    parameters: {
+      body: 'Optimize bubble sort for nearly-sorted input and explain why an early-exit flag changes the average trace length.',
+      difficulty: 'Easy',
+      reward: 'Belt Fragment',
+      xp: 150,
+      estimatedMinutes: 15,
+    },
+  },
+  {
+    id: 'sample-challenge-2',
+    title: 'The Graph Ghost',
+    targetRealm: 'laboratory',
+    parameters: {
+      body: 'Identify which missing edge causes Dijkstra to choose the wrong frontier node and justify the corrected relaxation order.',
+      difficulty: 'Hard',
+      reward: 'Cyan Badge',
+      xp: 400,
+      estimatedMinutes: 45,
+    },
+  },
+  {
+    id: 'sample-challenge-3',
+    title: 'Memory Lane',
+    targetRealm: 'sandbox',
+    parameters: {
+      body: 'Explain why a linked-list cycle detector fails on one branch and propose the smallest pointer update that fixes it.',
+      difficulty: 'Medium',
+      reward: 'Purple Shard',
+      xp: 250,
+      estimatedMinutes: 30,
+    },
+  },
+  {
+    id: 'sample-challenge-4',
+    title: 'Recursive Depths',
+    targetRealm: 'world',
+    parameters: {
+      body: 'Refactor a recursive tree traversal to iterative form and describe which stack state must be preserved between pops.',
+      difficulty: 'Medium',
+      reward: 'Green Core',
+      xp: 200,
+      estimatedMinutes: 25,
+    },
+  },
+  {
+    id: 'sample-challenge-5',
+    title: 'Pivot Pressure',
+    targetRealm: 'laboratory',
+    parameters: {
+      body: 'Given a quick-sort trace with bad pivots, choose a better pivot strategy and estimate how it changes partition balance.',
+      difficulty: 'Medium',
+      reward: 'Amber Chip',
+      xp: 280,
+      estimatedMinutes: 20,
+    },
+  },
+  {
+    id: 'sample-challenge-6',
+    title: 'Poster Critique Sprint',
+    targetRealm: 'forge',
+    parameters: {
+      body: 'Select the strongest caption for a logic poster and explain which wording best communicates the algorithm insight at a glance.',
+      difficulty: 'Easy',
+      reward: 'Studio Token',
+      xp: 120,
+      estimatedMinutes: 10,
+    },
+  },
+  {
+    id: 'sample-challenge-7',
+    title: 'State Leak Hunt',
+    targetRealm: 'dojo',
+    parameters: {
+      body: 'A function mutates shared state unexpectedly. Identify the aliasing point and rewrite the snippet to preserve local intent.',
+      difficulty: 'Hard',
+      reward: 'Emerald Seal',
+      xp: 360,
+      estimatedMinutes: 35,
+    },
+  },
+  {
+    id: 'sample-challenge-8',
+    title: 'Signal Noise Filter',
+    targetRealm: 'sandbox',
+    parameters: {
+      body: 'Tune a noisy simulation so the useful pattern emerges in under 10 seconds, then note which parameter had the highest leverage.',
+      difficulty: 'Medium',
+      reward: 'Field Lens',
+      xp: 230,
+      estimatedMinutes: 18,
+    },
+  },
+]
+
+const QUICK_POSTER_TEMPLATES = [
+  { title: 'Trace Snapshot', description: 'Freeze the key turning point in an algorithm trace.', sourceType: 'trace' },
+  { title: 'System Diagram', description: 'Document the moving parts of a project build.', sourceType: 'snapshot' },
+  { title: 'Optimization Before/After', description: 'Capture the delta between two solution approaches.', sourceType: 'algorithm' },
+  { title: 'Failure Timeline', description: 'Lay out the exact sequence that led to a runtime or logic failure.', sourceType: 'graph' },
+  { title: 'Complexity Cheat Sheet', description: 'Turn time-space tradeoffs into a compact comparison poster.', sourceType: 'manual' },
+]
+
+function sortPosters(items, sortMode) {
+  const next = [...items]
+
+  if (sortMode === 'title') {
+    return next.sort((a, b) => String(a.title ?? '').localeCompare(String(b.title ?? '')))
+  }
+
+  if (sortMode === 'oldest') {
+    return next.sort((a, b) => new Date(a.createdAt ?? 0) - new Date(b.createdAt ?? 0))
+  }
+
+  return next.sort((a, b) => new Date(b.createdAt ?? 0) - new Date(a.createdAt ?? 0))
+}
+
 /* ── animation variants ──────────────────────────────────────── */
 
 const cardVariants = {
@@ -92,8 +264,9 @@ const tabContentVariants = {
 
 /* ── component ───────────────────────────────────────────────── */
 
-export default function ForgePage() {
+export default function ForgePage({ onNotify }) {
   const realm = realmConfig.forge
+  const location = useLocation()
   const [posters, setPosters] = useState([])
   const [challenges, setChallenges] = useState([])
   const [status, setStatus] = useState('loading')
@@ -102,46 +275,60 @@ export default function ForgePage() {
   const [activeTab, setActiveTab] = useState('posters')
   const [posterView, setPosterView] = useState('grid') // grid | list
   const [posterSearch, setPosterSearch] = useState('')
+  const [posterSort, setPosterSort] = useState('recent')
+  const [posterVisibilityFilter, setPosterVisibilityFilter] = useState('all')
   const [difficultyFilter, setDifficultyFilter] = useState('all')
+  const [challengeRealmFilter, setChallengeRealmFilter] = useState('all')
+  const [challengeSearch, setChallengeSearch] = useState('')
   const [showNewPosterForm, setShowNewPosterForm] = useState(false)
   const [newPoster, setNewPoster] = useState({ title: '', description: '', sourceType: 'manual' })
   const [challengeProgress, setChallengeProgress] = useState({}) // id -> progress state
+  const [selectedPoster, setSelectedPoster] = useState(null)
+  const [isSavingPoster, setIsSavingPoster] = useState(false)
 
   const navigate = useNavigate()
 
   useEffect(() => {
+    const completedChallengeId = location.state?.completedChallengeId
+    if (!completedChallengeId) {
+      return
+    }
+
+    setActiveTab('challenges')
+    setChallengeProgress((prev) => ({ ...prev, [completedChallengeId]: 'completed' }))
+    onNotify?.('Challenge Complete', 'Returned from Sandbox and marked the challenge complete.', 'success')
+    navigate(location.pathname, { replace: true, state: {} })
+  }, [location, navigate, onNotify])
+
+  useEffect(() => {
     Promise.all([fetchPosters(), fetchChallenges()])
       .then(([postersData, challengesData]) => {
-        setPosters(postersData.items ?? [])
-        setChallenges(challengesData.items ?? [])
+        const posterItems = postersData.items?.length ? postersData.items : SAMPLE_POSTERS
+        const challengeItems = challengesData.items?.length ? challengesData.items : SAMPLE_CHALLENGES
+        setPosters(posterItems)
+        setChallenges(challengeItems)
         setStatus('ready')
       })
       .catch((err) => {
         console.error("API Fetch Error:", err)
-        // Fallback mocks
-        setPosters([
-            { id: '1', title: 'Binary Tree Radial', payload: { summary: 'Visual capture of an optimized Red-Black tree.' }, createdAt: new Date(Date.now() - 86400000).toISOString(), sourceType: 'algorithm', visibility: 'public' },
-            { id: '2', title: 'Pathfinder v1', payload: { summary: 'A* implementation across a 1000-node graph.' }, createdAt: new Date(Date.now() - 172800000).toISOString(), sourceType: 'graph', visibility: 'private' },
-            { id: '3', title: 'Sort Spectrum', payload: { summary: 'Comparative visual of 6 sorting algorithms.' }, createdAt: new Date(Date.now() - 3600000).toISOString(), sourceType: 'manual', visibility: 'public' },
-        ])
-        setChallenges([
-            { id: '1', title: 'Bubble Burst', targetRealm: 'dojo', parameters: { body: 'Optimize bubble sort to handle nearly-sorted data.', difficulty: 'Easy', reward: 'Belt Fragment', xp: 150, estimatedMinutes: 15 } },
-            { id: '2', title: 'The Graph Ghost', targetRealm: 'laboratory', parameters: { body: 'Identify a missing edge in a Dijkstra trace.', difficulty: 'Hard', reward: 'Cyan Badge', xp: 400, estimatedMinutes: 45 } },
-            { id: '3', title: 'Memory Lane', targetRealm: 'sandbox', parameters: { body: 'Debug a linked-list cycle detection failure.', difficulty: 'Medium', reward: 'Purple Shard', xp: 250, estimatedMinutes: 30 } },
-            { id: '4', title: 'Recursive Depths', targetRealm: 'world', parameters: { body: 'Refactor a recursive tree traversal to iterative.', difficulty: 'Medium', reward: 'Green Core', xp: 200, estimatedMinutes: 25 } },
-        ])
-        setChallengeProgress({ '1': 'completed', '3': 'in progress' })
+        setPosters(SAMPLE_POSTERS)
+        setChallenges(SAMPLE_CHALLENGES)
+        setChallengeProgress({ 'sample-challenge-1': 'completed', 'sample-challenge-3': 'in progress' })
         setStatus('ready')
       })
   }, [])
 
   function handleLaunchChallenge(challenge) {
-    navigate(`/${challenge.targetRealm}`, { state: { challenge } })
+    navigate('/sandbox', { state: { challenge } })
   }
 
   /* ── derived data ──────────────────────────────────────────── */
 
-  const filteredPosters = posters.filter((p) => {
+  const filteredPosters = sortPosters(posters.filter((p) => {
+    if (posterVisibilityFilter !== 'all' && (p.visibility ?? 'private') !== posterVisibilityFilter) {
+      return false
+    }
+
     if (!posterSearch.trim()) return true
     const q = posterSearch.toLowerCase()
     return (
@@ -149,11 +336,15 @@ export default function ForgePage() {
       (p.payload?.summary ?? '').toLowerCase().includes(q) ||
       (p.sourceType ?? '').toLowerCase().includes(q)
     )
-  })
+  }), posterSort)
 
   const filteredChallenges = challenges.filter((c) => {
-    if (difficultyFilter === 'all') return true
-    return (c.parameters?.difficulty ?? '').toLowerCase() === difficultyFilter
+    const matchesDifficulty = difficultyFilter === 'all' || (c.parameters?.difficulty ?? '').toLowerCase() === difficultyFilter
+    const matchesRealm = challengeRealmFilter === 'all' || c.targetRealm === challengeRealmFilter
+    const query = challengeSearch.trim().toLowerCase()
+    const matchesSearch = !query || `${c.title ?? ''} ${c.parameters?.body ?? ''}`.toLowerCase().includes(query)
+
+    return matchesDifficulty && matchesRealm && matchesSearch
   })
 
   const completedChallenges = Object.values(challengeProgress).filter((s) => s === 'completed').length
@@ -161,6 +352,16 @@ export default function ForgePage() {
     if (challengeProgress[c.id] === 'completed') return sum + (c.parameters?.xp ?? 0)
     return sum
   }, 0)
+
+  const posterSourceBreakdown = posters.reduce((acc, poster) => {
+    const key = poster.sourceType ?? 'manual'
+    acc[key] = (acc[key] ?? 0) + 1
+    return acc
+  }, {})
+
+  const nextChallenge = filteredChallenges
+    .find((challenge) => (challengeProgress[challenge.id] ?? 'not started') !== 'completed')
+    ?? filteredChallenges[0]
 
   /* ── recent activity feed ──────────────────────────────────── */
 
@@ -181,20 +382,63 @@ export default function ForgePage() {
 
   /* ── new poster creation ───────────────────────────────────── */
 
-  function handleCreatePoster(e) {
+  async function handleCreatePoster(e) {
     e.preventDefault()
-    if (!newPoster.title.trim()) return
-    const created = {
-      id: String(Date.now()),
-      title: newPoster.title,
-      payload: { summary: newPoster.description || 'No summary available.' },
-      createdAt: new Date().toISOString(),
-      sourceType: newPoster.sourceType,
-      visibility: 'private',
+    if (!newPoster.title.trim() || isSavingPoster) return
+
+    setIsSavingPoster(true)
+
+    try {
+      const created = await createPoster({
+        title: newPoster.title.trim(),
+        sourceType: newPoster.sourceType,
+        sourceRef: null,
+        payload: { summary: newPoster.description.trim() || 'No summary available.' },
+        visibility: 'private',
+      })
+
+      setPosters((prev) => [created, ...prev])
+      setSelectedPoster(created)
+      setNewPoster({ title: '', description: '', sourceType: 'manual' })
+      setShowNewPosterForm(false)
+      onNotify?.('Poster Forged', `${created.title} is now in your gallery.`, 'success')
+    } catch (error) {
+      console.error('Poster creation failed:', error)
+      onNotify?.('Forge Offline', 'Poster could not be saved right now.', 'error')
+    } finally {
+      setIsSavingPoster(false)
     }
-    setPosters((prev) => [created, ...prev])
-    setNewPoster({ title: '', description: '', sourceType: 'manual' })
-    setShowNewPosterForm(false)
+  }
+
+  async function handleSharePoster(poster) {
+    const shareText = `${poster.title}: ${poster.payload?.summary ?? 'Logic capture from Forge.'}`
+
+    try {
+      await navigator.clipboard.writeText(shareText)
+      onNotify?.('Link Copied', 'Poster summary copied to your clipboard.', 'success')
+    } catch (error) {
+      console.error('Clipboard write failed:', error)
+      onNotify?.('Share Unavailable', 'Clipboard access is blocked in this browser.', 'error')
+    }
+  }
+
+  function handleProgressChange(challenge, value) {
+    setChallengeProgress((prev) => ({ ...prev, [challenge.id]: value }))
+
+    if (value === 'completed') {
+      onNotify?.('Challenge Complete', `${challenge.title} banked ${challenge.parameters?.xp ?? 0} XP.`, 'success')
+      return
+    }
+
+    if (value === 'in progress') {
+      onNotify?.('Challenge Tracked', `${challenge.title} is now in progress.`, 'info')
+    }
+  }
+
+  function handleQuickPosterTemplate(template) {
+    setActiveTab('posters')
+    setShowNewPosterForm(true)
+    setNewPoster(template)
   }
 
   /* ── render ────────────────────────────────────────────────── */
@@ -377,7 +621,7 @@ export default function ForgePage() {
               </div>
 
               {/* search bar */}
-              <div style={{ margin: '1rem 0' }}>
+              <div style={{ margin: '1rem 0', display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) repeat(2, auto)', gap: '0.75rem' }}>
                 <input
                   type="text"
                   placeholder="Search posters by title, summary, or source type..."
@@ -397,6 +641,24 @@ export default function ForgePage() {
                   onFocus={(e) => (e.target.style.borderColor = '#f59e0b')}
                   onBlur={(e) => (e.target.style.borderColor = '#334155')}
                 />
+                <select
+                  value={posterVisibilityFilter}
+                  onChange={(e) => setPosterVisibilityFilter(e.target.value)}
+                  style={{ padding: '0.65rem 0.85rem', borderRadius: 8, border: '1px solid #334155', background: '#0f172a', color: '#f8fafc', fontSize: '0.82rem' }}
+                >
+                  <option value="all">All visibility</option>
+                  <option value="public">Public</option>
+                  <option value="private">Private</option>
+                </select>
+                <select
+                  value={posterSort}
+                  onChange={(e) => setPosterSort(e.target.value)}
+                  style={{ padding: '0.65rem 0.85rem', borderRadius: 8, border: '1px solid #334155', background: '#0f172a', color: '#f8fafc', fontSize: '0.82rem' }}
+                >
+                  <option value="recent">Newest first</option>
+                  <option value="oldest">Oldest first</option>
+                  <option value="title">Title A-Z</option>
+                </select>
               </div>
 
               {/* new poster form */}
@@ -540,6 +802,7 @@ export default function ForgePage() {
                             type="button"
                             className="action-button action-button-primary"
                             style={{ padding: '0.35rem 0.85rem', fontSize: '0.75rem' }}
+                            onClick={() => setSelectedPoster(poster)}
                           >
                             View Details
                           </button>
@@ -555,8 +818,7 @@ export default function ForgePage() {
                               cursor: 'pointer',
                               transition: 'all 0.2s',
                             }}
-                            onMouseEnter={(e) => { e.target.style.borderColor = '#f59e0b'; e.target.style.color = '#f59e0b' }}
-                            onMouseLeave={(e) => { e.target.style.borderColor = '#334155'; e.target.style.color = '#94a3b8' }}
+                            onClick={() => handleSharePoster(poster)}
                           >
                             Share
                           </button>
@@ -618,6 +880,27 @@ export default function ForgePage() {
                     {level === 'all' ? 'All Difficulties' : level}
                   </button>
                 ))}
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: '0.75rem', marginBottom: '1rem' }}>
+                <input
+                  type="text"
+                  value={challengeSearch}
+                  onChange={(e) => setChallengeSearch(e.target.value)}
+                  placeholder="Search challenges by title or prompt..."
+                  style={{ padding: '0.65rem 1rem', borderRadius: 8, border: '1px solid #334155', background: '#0f172a', color: '#f8fafc', fontSize: '0.85rem' }}
+                />
+                <select
+                  value={challengeRealmFilter}
+                  onChange={(e) => setChallengeRealmFilter(e.target.value)}
+                  style={{ padding: '0.65rem 0.85rem', borderRadius: 8, border: '1px solid #334155', background: '#0f172a', color: '#f8fafc', fontSize: '0.82rem' }}
+                >
+                  <option value="all">All realms</option>
+                  <option value="dojo">Dojo</option>
+                  <option value="laboratory">Laboratory</option>
+                  <option value="sandbox">Sandbox</option>
+                  <option value="world">World</option>
+                </select>
               </div>
 
               {/* challenge cards */}
@@ -739,7 +1022,7 @@ export default function ForgePage() {
                           </button>
                           <select
                             value={progress}
-                            onChange={(e) => setChallengeProgress((prev) => ({ ...prev, [challenge.id]: e.target.value }))}
+                            onChange={(e) => handleProgressChange(challenge, e.target.value)}
                             style={{
                               padding: '0.35rem 0.5rem',
                               borderRadius: 8,
@@ -839,7 +1122,106 @@ export default function ForgePage() {
           )}
 
         </AnimatePresence>
+
+        <aside style={{ display: 'grid', gap: '1rem', alignContent: 'start' }}>
+          <section className="glass-panel" style={{ padding: '1.25rem' }}>
+            <p className="card-tag text-amber">Recommended</p>
+            <h3 style={{ marginBottom: '0.5rem' }}>Next Forge Move</h3>
+            {nextChallenge ? (
+              <>
+                <strong style={{ display: 'block', color: '#f8fafc', marginBottom: '0.35rem' }}>{nextChallenge.title}</strong>
+                <p style={{ color: '#94a3b8', fontSize: '0.85rem', lineHeight: 1.5 }}>
+                  {nextChallenge.parameters?.body ?? 'Pick a challenge to keep your iteration loop moving.'}
+                </p>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', margin: '0.75rem 0 1rem' }}>
+                  <span className="mini-pill">{nextChallenge.targetRealm}</span>
+                  <span className="mini-pill">{nextChallenge.parameters?.difficulty ?? 'Diagnostic'}</span>
+                  <span className="mini-pill text-purple">+{nextChallenge.parameters?.xp ?? 0} XP</span>
+                </div>
+                <button type="button" className="action-button action-button-primary" onClick={() => handleLaunchChallenge(nextChallenge)}>
+                  Launch Recommended Challenge
+                </button>
+              </>
+            ) : (
+              <p style={{ color: '#64748b', margin: 0 }}>No challenge recommendations are available yet.</p>
+            )}
+          </section>
+
+          <section className="glass-panel" style={{ padding: '1.25rem' }}>
+            <p className="card-tag text-purple">Templates</p>
+            <h3 style={{ marginBottom: '0.75rem' }}>Quick Poster Starts</h3>
+            {QUICK_POSTER_TEMPLATES.map((template) => (
+              <button
+                key={template.title}
+                type="button"
+                onClick={() => handleQuickPosterTemplate(template)}
+                style={{ width: '100%', textAlign: 'left', padding: '0.85rem 1rem', marginTop: '0.6rem', borderRadius: 12, border: '1px solid #334155', background: 'rgba(15, 23, 42, 0.65)', color: '#e2e8f0', cursor: 'pointer' }}
+              >
+                <strong style={{ display: 'block', marginBottom: 4 }}>{template.title}</strong>
+                <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>{template.description}</span>
+              </button>
+            ))}
+          </section>
+
+          <section className="glass-panel" style={{ padding: '1.25rem' }}>
+            <p className="card-tag text-amber">Mix</p>
+            <h3 style={{ marginBottom: '0.75rem' }}>Poster Sources</h3>
+            <div style={{ display: 'grid', gap: '0.6rem' }}>
+              {Object.entries(posterSourceBreakdown).length > 0 ? Object.entries(posterSourceBreakdown).map(([source, count]) => (
+                <div key={source} style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', padding: '0.7rem 0.85rem', borderRadius: 10, background: 'rgba(248,250,252,0.03)' }}>
+                  <span style={{ color: '#cbd5e1', textTransform: 'capitalize' }}>{source}</span>
+                  <strong style={{ color: '#f8fafc' }}>{count}</strong>
+                </div>
+              )) : (
+                <p style={{ color: '#64748b', margin: 0 }}>Create a poster to start building your archive.</p>
+              )}
+            </div>
+          </section>
+        </aside>
       </section>
+
+      <AnimatePresence>
+        {selectedPoster && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(2, 6, 23, 0.82)', zIndex: 60, display: 'grid', placeItems: 'center', padding: '1.5rem' }}
+            onClick={() => setSelectedPoster(null)}
+          >
+            <motion.section
+              initial={{ opacity: 0, y: 18, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 18, scale: 0.98 }}
+              transition={{ duration: 0.2 }}
+              className="glass-panel"
+              style={{ width: 'min(720px, 100%)', padding: '1.25rem', display: 'grid', gap: '1rem' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="poster-thumb" style={{ marginBottom: 0 }}>
+                <img src={buildPosterPreview(selectedPoster.title)} alt={selectedPoster.title} />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                <div>
+                  <p className="card-tag text-amber">Poster Detail</p>
+                  <h3 style={{ marginBottom: '0.45rem' }}>{selectedPoster.title}</h3>
+                  <p style={{ color: '#94a3b8', margin: 0, lineHeight: 1.6 }}>{selectedPoster.payload?.summary ?? 'No summary available.'}</p>
+                </div>
+                <button type="button" onClick={() => setSelectedPoster(null)} style={{ border: '1px solid #334155', background: 'transparent', color: '#cbd5e1', borderRadius: 9999, width: 36, height: 36, cursor: 'pointer' }}>×</button>
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <span className="mini-pill">{selectedPoster.sourceType ?? 'manual'}</span>
+                <span className="mini-pill">{selectedPoster.visibility ?? 'private'}</span>
+                <span className="mini-pill">{formatDate(selectedPoster.createdAt)}</span>
+              </div>
+              <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                <button type="button" className="action-button action-button-primary" onClick={() => handleSharePoster(selectedPoster)}>Copy Share Text</button>
+                <button type="button" onClick={() => setSelectedPoster(null)} style={{ padding: '0.6rem 1rem', borderRadius: 10, border: '1px solid #334155', background: 'transparent', color: '#cbd5e1', cursor: 'pointer' }}>Close</button>
+              </div>
+            </motion.section>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   )
 }

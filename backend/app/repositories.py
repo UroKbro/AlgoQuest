@@ -267,6 +267,15 @@ async def _latest_gate(profile_id: str) -> dict[str, Any] | None:
     )
 
 
+async def _recent_gates(profile_id: str, limit: int = 4) -> list[dict[str, Any]]:
+    return await _select(
+        "weekly_gate_results",
+        filters={"profile_id": profile_id},
+        order="completed_at.desc",
+        limit=limit,
+    )
+
+
 async def get_progress_summary(profile_id: str = "guest") -> dict:
     lessons = await list_lesson_progress(profile_id)
     completed_count = sum(1 for lesson in lessons if lesson["status"] == "completed")
@@ -279,11 +288,7 @@ async def get_progress_summary(profile_id: str = "guest") -> dict:
         lessons[0] if lessons else None,
     )
     gate = await _latest_gate(profile_id)
-    friction_points = (
-        gate["friction_points_json"]
-        if gate
-        else ["Nested recursion", "Snapshot comparison"]
-    )
+    friction_points = gate["friction_points_json"] if gate else []
 
     return {
         "continuity": {
@@ -297,15 +302,13 @@ async def get_progress_summary(profile_id: str = "guest") -> dict:
                 "primaryLabel": "completed lessons",
                 "primaryValue": str(completed_count),
                 "secondaryLabel": "next focus",
-                "secondaryValue": friction_points[0]
-                if friction_points
-                else "logic drill",
+                "secondaryValue": friction_points[0] if friction_points else "—",
             },
         },
         "weeklyStats": await _get_real_weekly_stats(profile_id),
         "focus": {
-            "label": friction_points[0] if friction_points else "Recursive Depth",
-            "summary": "Your strongest loops are stable, but deeper state comparisons still need repetition.",
+            "label": friction_points[0] if friction_points else "",
+            "summary": "",
             "recommendedRealm": "path",
         },
     }
@@ -315,31 +318,45 @@ async def get_path_analytics(profile_id: str = "guest") -> dict:
     lessons = await list_lesson_progress(profile_id)
     completed_count = sum(1 for lesson in lessons if lesson["status"] == "completed")
     gate = await _latest_gate(profile_id)
-    strengths = (
-        gate["strengths_json"] if gate else ["Loop consistency", "Array scanning"]
-    )
-    friction_points = (
-        gate["friction_points_json"]
-        if gate
-        else ["Nested recursion", "Snapshot comparison"]
-    )
+    strengths = gate["strengths_json"] if gate else []
+    friction_points = gate["friction_points_json"] if gate else []
+
+    # Weekly history comes strictly from submitted gates.
+    gates = await _recent_gates(profile_id, limit=4)
+    gates = list(reversed(gates))
+    weekly_history: list[dict[str, Any]] = []
+    for idx, row in enumerate(gates):
+        points = row.get("friction_points_json") or []
+        weekly_history.append(
+            {
+                "week": f"W{idx + 1}",
+                "focus": points[0] if points else "",
+                "score": row.get("score", 0),
+                "status": "active" if idx == len(gates) - 1 else "completed",
+            }
+        )
+
+    # Only derive radar signals from persisted user actions.
+    projects = await list_projects(profile_id)
+    projects_count = len(projects)
 
     return {
-        "weeklyFocus": friction_points[0] if friction_points else "Recursive Depth",
+        "weeklyFocus": friction_points[0] if friction_points else "",
         "strengths": strengths,
         "frictionPoints": friction_points,
         "masteryRadar": {
-            "logic": min(95, 48 + completed_count * 8),
-            "syntax": min(95, 52 + completed_count * 7),
-            "efficiency": 58,
-            "projects": 34,
-            "speed": 61,
+            "logic": min(100, completed_count * 10),
+            "syntax": min(100, completed_count * 10),
+            "efficiency": 0,
+            "projects": min(100, projects_count * 20),
+            "speed": 0,
         },
         "weeklyGate": {
-            "score": gate["score"] if gate else 78,
+            "score": gate["score"] if gate else 0,
             "strengths": strengths,
             "frictionPoints": friction_points,
         },
+        "weeklyHistory": weekly_history,
     }
 
 
@@ -623,18 +640,47 @@ async def mark_notification_read(notification_id: int, profile_id: str) -> bool:
 
 
 async def _get_real_weekly_stats(profile_id: str) -> list[dict]:
-    solves = await _count(
+    # Supabase REST filters here only support equality. Pull a recent window and
+    # aggregate locally.
+    rows = await _select(
         "activity_logs",
-        filters={"profile_id": profile_id, "event_type": "solve"},
+        filters={"profile_id": profile_id},
+        order="created_at.desc",
+        limit=500,
     )
-    days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
+    # Keep day labels stable (Mon..Sun). If timestamps exist, we aggregate by weekday.
+    day_order = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    buckets: dict[str, dict[str, int]] = {
+        d: {"activeMinutes": 0, "logicProblemsSolved": 0} for d in day_order
+    }
+
+    for row in rows:
+        created_at = row.get("created_at")
+        try:
+            ts = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+        except Exception:
+            continue
+
+        day = ts.strftime("%a")
+        if day not in buckets:
+            continue
+
+        if row.get("event_type") == "solve":
+            buckets[day]["logicProblemsSolved"] += 1
+
+        meta = row.get("metadata_json") or {}
+        minutes = meta.get("activeMinutes") or meta.get("minutes") or 0
+        if isinstance(minutes, (int, float)) and minutes > 0:
+            buckets[day]["activeMinutes"] += int(minutes)
+
     return [
         {
             "day": day,
-            "activeMinutes": 15 + (i * 3),
-            "logicProblemsSolved": (solves if i == 4 else (1 if i < 4 else 0)),
+            "activeMinutes": buckets[day]["activeMinutes"],
+            "logicProblemsSolved": buckets[day]["logicProblemsSolved"],
         }
-        for i, day in enumerate(days)
+        for day in day_order
     ]
 
 

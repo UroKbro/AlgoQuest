@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import { NavLink } from 'react-router-dom'
 import Editor from 'react-simple-code-editor'
 import Prism from 'prismjs'
@@ -22,6 +22,50 @@ const starterCodeByLesson = {
 }
 
 const dojoStorageKey = 'algoquest-dojo-state'
+
+function hashString(input) {
+  // Simple deterministic hash for stable visuals per lesson slug.
+  let hash = 5381
+  for (let i = 0; i < input.length; i++) {
+    hash = ((hash << 5) + hash) ^ input.charCodeAt(i)
+  }
+  return Math.abs(hash >>> 0)
+}
+
+function getLessonVisual(slug) {
+  const glyphs = ['◆', '◇', '◈', '⬡', '⬢', '⬣', '⬟', '⬠', '▣', '▢', '◐', '◑', '◒', '◓']
+  const gradients = [
+    ['rgba(245,158,11,0.28)', 'rgba(251,191,36,0.10)'],
+    ['rgba(34,197,94,0.24)', 'rgba(16,185,129,0.10)'],
+    ['rgba(168,85,247,0.22)', 'rgba(192,132,252,0.10)'],
+    ['rgba(6,182,212,0.22)', 'rgba(34,211,238,0.10)'],
+    ['rgba(59,130,246,0.20)', 'rgba(147,197,253,0.10)'],
+    ['rgba(244,63,94,0.18)', 'rgba(253,164,175,0.10)'],
+  ]
+
+  const h = hashString(slug)
+  const glyph = glyphs[h % glyphs.length]
+  const [a, b] = gradients[h % gradients.length]
+  const tilt = (h % 24) - 12
+
+  return {
+    glyph,
+    style: {
+      width: 26,
+      height: 26,
+      borderRadius: 9,
+      display: 'grid',
+      placeItems: 'center',
+      flexShrink: 0,
+      background: `linear-gradient(${135 + tilt}deg, ${a}, ${b})`,
+      border: '1px solid rgba(255,255,255,0.10)',
+      boxShadow: '0 10px 18px rgba(0,0,0,0.18)',
+      color: 'rgba(255,255,255,0.82)',
+      fontSize: 12,
+      lineHeight: 1,
+    },
+  }
+}
 
 function groupLessonsByTier(items) {
   return items.reduce((groups, lesson) => {
@@ -116,15 +160,291 @@ function buildStageModel(selectedLesson, code) {
   }
 
   return {
-    primaryLabel: 'variable',
-    primaryValue: 'pending',
-    secondaryLabel: 'next visual',
-    secondaryValue: 'pointer drone'
+    primaryLabel: 'lesson core',
+    primaryValue: selectedLesson.title,
+    secondaryLabel: 'active track',
+    secondaryValue: selectedLesson.tier || 'dojo lane',
+  }
+}
+
+function deriveVisualSignature(selectedLesson, code, completedCount, totalLessons) {
+  const codeLines = code.split('\n').map((line) => line.trim()).filter(Boolean)
+  const tokenSet = new Set(codeLines.join(' ').toLowerCase().split(/[^a-z0-9_]+/).filter(Boolean))
+  const lessonTokens = `${selectedLesson.slug} ${selectedLesson.title}`.toLowerCase()
+  const hasLoop = tokenSet.has('for') || tokenSet.has('while')
+  const hasFunction = tokenSet.has('def')
+  const hasMap = tokenSet.has('dict') || tokenSet.has('dictionary') || tokenSet.has('grades')
+  const hasTry = tokenSet.has('try') || tokenSet.has('except')
+  const hasList = tokenSet.has('list') || tokenSet.has('append') || tokenSet.has('range')
+  const hasReturn = tokenSet.has('return')
+
+  let lane = 'concept flow'
+  if (hasLoop) lane = 'iteration lane'
+  else if (hasFunction) lane = 'function lane'
+  else if (hasMap) lane = 'lookup lane'
+  else if (hasTry) lane = 'recovery lane'
+  else if (hasList) lane = 'sequence lane'
+
+  let focus = 'state transitions'
+  if (lessonTokens.includes('memory')) focus = 'memory model'
+  else if (lessonTokens.includes('pointer')) focus = 'references'
+  else if (lessonTokens.includes('recursion')) focus = 'call stack'
+  else if (lessonTokens.includes('comprehension')) focus = 'transforms'
+  else if (hasReturn) focus = 'return path'
+
+  const complexity = Math.max(1, Math.min(9, codeLines.length))
+
+  return {
+    lane,
+    focus,
+    complexity,
+    signals: [
+      `${codeLines.length} code lines`,
+      `${tokenSet.size} tokens`,
+      `${completedCount}/${totalLessons || 0} cleared`,
+    ],
+  }
+}
+
+function buildVisualScene(selectedLesson, code, completedCount, totalLessons, progressPercent) {
+  if (!selectedLesson) {
+    return {
+      title: 'Choose a lesson to open the stage',
+      detail: 'The Dojo turns each Python concept into a simple visual metaphor before you touch the code.',
+      orbitLabel: 'Dojo standby',
+      orbitValue: `${completedCount}/${totalLessons || 0}`,
+      columns: [
+        [
+          { label: 'Lesson rail', value: 'locked in' },
+          { label: 'Visual cues', value: 'warming up' },
+        ],
+        [
+          { label: 'Runtime', value: 'ready when you are' },
+          { label: 'Mastery', value: `${progressPercent}%` },
+        ],
+      ],
+      chips: ['Visual-first lessons', 'Python foundations', 'Trackable progress'],
+    }
+  }
+
+  if (selectedLesson.slug === 'memory-boxes') {
+    const startValue = Number(code.match(/score\s*=\s*(\d+)/)?.[1] ?? 7)
+    const increment = Number(code.match(/score\s*=\s*score\s*\+\s*(\d+)/)?.[1] ?? 3)
+    const finalValue = startValue + increment
+
+    return {
+      title: 'Watch one value move through memory',
+      detail: 'Variables are containers. The visual tracks the initial assignment, the update, and the final printed state.',
+      orbitLabel: 'Final score',
+      orbitValue: String(finalValue),
+      columns: [
+        [
+          { label: 'Initial box', value: String(startValue) },
+          { label: 'Mutation', value: `+${increment}` },
+        ],
+        [
+          { label: 'Printed value', value: String(finalValue) },
+          { label: 'Concept', value: 'assignment flow' },
+        ],
+      ],
+      chips: ['State change', 'Single variable', 'Read -> update -> print'],
+    }
+  }
+
+  if (selectedLesson.slug === 'loop-mastery') {
+    const rangeMatch = code.match(/range\((\d+),\s*(\d+)\)/)
+    const loopStart = Number(rangeMatch?.[1] ?? 1)
+    const loopEnd = Number(rangeMatch?.[2] ?? 5)
+    const passCount = Math.max(loopEnd - loopStart, 0)
+    const total = Array.from({ length: passCount }, (_, index) => loopStart + index).reduce((sum, value) => sum + value, 0)
+
+    return {
+      title: 'Follow each loop pass across the track',
+      detail: 'The loop visual shows how the counter advances and how repeated additions build one running total.',
+      orbitLabel: 'Running total',
+      orbitValue: String(total),
+      columns: [
+        [
+          { label: 'Range', value: `${loopStart} -> ${loopEnd - 1}` },
+          { label: 'Passes', value: String(passCount) },
+        ],
+        [
+          { label: 'Accumulator', value: String(total) },
+          { label: 'Concept', value: 'repetition + state' },
+        ],
+      ],
+      chips: ['For loop', 'Counter advance', 'Incremental sum'],
+    }
+  }
+
+  if (selectedLesson.slug === 'pointer-drones') {
+    const listItems = [...code.matchAll(/"([^"]+)"/g)].map((match) => match[1])
+    const appendedValue = code.match(/append\("([^"]+)"\)/)?.[1] ?? 'emerald'
+    const totalItems = listItems.length > 0 ? listItems.length : 3
+
+    return {
+      title: 'See two names point at one shared list',
+      detail: 'References do not copy the list. They create another path to the same object, so both names observe the same mutation.',
+      orbitLabel: 'Shared list size',
+      orbitValue: String(totalItems + 1),
+      columns: [
+        [
+          { label: 'Primary name', value: 'items' },
+          { label: 'Alias name', value: 'focus' },
+        ],
+        [
+          { label: 'Append action', value: appendedValue },
+          { label: 'Concept', value: 'same object, two labels' },
+        ],
+      ],
+      chips: ['Shared reference', 'Alias update', 'Mutation is visible'],
+    }
+  }
+
+  if (selectedLesson.slug === 'function-foundations') {
+    const args = code.match(/calculate_area\((\d+),\s*(\d+)\)/)
+    const length = Number(args?.[1] ?? 5)
+    const width = Number(args?.[2] ?? 3)
+
+    return {
+      title: 'Map the call, local scope, and return path',
+      detail: 'The stage turns a function into a small pipeline: inputs enter scope, logic runs, and a value returns to the caller.',
+      orbitLabel: 'Returned area',
+      orbitValue: String(length * width),
+      columns: [
+        [
+          { label: 'Input length', value: String(length) },
+          { label: 'Input width', value: String(width) },
+        ],
+        [
+          { label: 'Operation', value: 'length * width' },
+          { label: 'Concept', value: 'encapsulated logic' },
+        ],
+      ],
+      chips: ['Function call', 'Local scope', 'Return value'],
+    }
+  }
+
+  if (selectedLesson.slug === 'dictionary-dives') {
+    const pairCount = (code.match(/:/g) ?? []).length
+    const addedKey = code.match(/grades\["([^"]+)"\]\s*=/)?.[1] ?? 'David'
+
+    return {
+      title: 'Use keys as fast doors into stored values',
+      detail: 'Dictionaries link each key to a value. The visual emphasizes lookups, insertion, and why key-based access feels instant.',
+      orbitLabel: 'Tracked keys',
+      orbitValue: String(pairCount + 1),
+      columns: [
+        [
+          { label: 'Lookup target', value: 'Bob' },
+          { label: 'Inserted key', value: addedKey },
+        ],
+        [
+          { label: 'Structure', value: 'key -> value' },
+          { label: 'Concept', value: 'direct lookup' },
+        ],
+      ],
+      chips: ['Dictionary map', 'Key access', 'Add new entry'],
+    }
+  }
+
+  if (selectedLesson.slug === 'recursion-basics') {
+    const depth = Number(code.match(/factorial\((\d+)\)/)?.[1] ?? 5)
+
+    return {
+      title: 'Stack each recursive call until the base case resolves',
+      detail: 'Recursion adds frames on the way down and collapses them on the way back up after the base case returns a value.',
+      orbitLabel: 'Stack depth',
+      orbitValue: String(depth + 1),
+      columns: [
+        [
+          { label: 'Start value', value: String(depth) },
+          { label: 'Base case', value: 'n == 0' },
+        ],
+        [
+          { label: 'Unwind mode', value: 'multiply upward' },
+          { label: 'Concept', value: 'self-calling function' },
+        ],
+      ],
+      chips: ['Recursive descent', 'Base case', 'Stack unwind'],
+    }
+  }
+
+  if (selectedLesson.slug === 'list-comprehensions') {
+    const endValue = Number(code.match(/range\(1,\s*(\d+)\)/)?.[1] ?? 6)
+
+    return {
+      title: 'Compress loop and output into one readable expression',
+      detail: 'List comprehensions keep iteration, transformation, and collection in one place, which makes small pipelines easier to scan.',
+      orbitLabel: 'Items generated',
+      orbitValue: String(Math.max(endValue - 1, 0)),
+      columns: [
+        [
+          { label: 'Input range', value: `1 -> ${endValue - 1}` },
+          { label: 'Operation', value: 'x * x' },
+        ],
+        [
+          { label: 'Output shape', value: 'new list' },
+          { label: 'Concept', value: 'compact iteration' },
+        ],
+      ],
+      chips: ['Inline transform', 'Readable output', 'Loop shorthand'],
+    }
+  }
+
+  if (selectedLesson.slug === 'error-handling') {
+    const exceptionName = code.match(/except\s+([A-Za-z_][A-Za-z0-9_]*)/)?.[1] ?? 'ZeroDivisionError'
+
+    return {
+      title: 'Separate risky code from the fallback path',
+      detail: 'The visual splits execution into a try lane and a recovery lane so the control flow stays easy to reason about.',
+      orbitLabel: 'Caught exception',
+      orbitValue: exceptionName,
+      columns: [
+        [
+          { label: 'Risky action', value: '10 / 0' },
+          { label: 'Guard block', value: 'try' },
+        ],
+        [
+          { label: 'Recovery block', value: 'except' },
+          { label: 'Concept', value: 'safe fallback' },
+        ],
+      ],
+      chips: ['Exception path', 'Protected logic', 'Graceful recovery'],
+    }
+  }
+
+  const signature = deriveVisualSignature(selectedLesson, code, completedCount, totalLessons)
+
+  return {
+    title: `Visual map: ${selectedLesson.title}`,
+    detail: `${selectedLesson.summary} This lesson currently runs in the ${signature.lane} with a focus on ${signature.focus}.`,
+    orbitLabel: 'Mastery orbit',
+    orbitValue: `${progressPercent}% · L${signature.complexity}`,
+    columns: [
+      [
+        { label: 'Lesson', value: selectedLesson.title },
+        { label: 'Tier', value: selectedLesson.tier },
+      ],
+      [
+        { label: 'Visual lane', value: signature.lane },
+        { label: 'Focus', value: signature.focus },
+      ],
+      [
+        { label: 'Progress', value: `${completedCount}/${totalLessons}` },
+        { label: 'Complexity', value: `L${signature.complexity}` },
+      ],
+    ],
+    chips: ['Concept preview', 'Interactive code', 'Progress tracking', ...signature.signals],
   }
 }
 
 export default function DojoPage({ onNotify }) {
   const realm = realmConfig.dojo
+  const explanationRef = useRef(null)
+  const editorRef = useRef(null)
+  const quizRef = useRef(null)
+  const critiqueRef = useRef(null)
   const [state, setState] = useState({ status: 'loading', items: [], message: '' })
   const [selectedLessonSlug, setSelectedLessonSlug] = useState('')
   const [codeByLesson, setCodeByLesson] = useState({})
@@ -134,6 +454,7 @@ export default function DojoPage({ onNotify }) {
   const [quizState, setQuizState] = useState({ status: 'hidden', selectedAnswer: null, isCorrect: null })
   const [executionStats, setExecutionStats] = useState({ runs: 0, lastExecutionTime: 0, totalRuns: 0 })
   const [copiedCode, setCopiedCode] = useState(false)
+  const [stageFocus, setStageFocus] = useState('memory')
 
   useEffect(() => {
     let cancelled = false
@@ -321,6 +642,34 @@ export default function DojoPage({ onNotify }) {
     }
   }
 
+  const scrollToSection = useCallback((targetRef) => {
+    targetRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [])
+
+  function handleOpenEditorFromStage() {
+    scrollToSection(editorRef)
+  }
+
+  function handleOpenCritiqueFromStage() {
+    scrollToSection(critiqueRef)
+    if (selectedLesson) {
+      handleAIReview()
+    }
+  }
+
+  function handleOpenQuizFromStage() {
+    if (!selectedLesson?.quiz) {
+      onNotify?.('No Quiz', 'This lesson does not have a quiz yet.', 'info')
+      return
+    }
+
+    setQuizState((current) => ({
+      ...current,
+      status: 'visible',
+    }))
+    window.setTimeout(() => scrollToSection(quizRef), 60)
+  }
+
   function handleResetCode() {
     if (!selectedLesson) {
       return
@@ -345,11 +694,73 @@ export default function DojoPage({ onNotify }) {
     }
   }
 
+  function handleLessonCoreView(lessonSlug) {
+    setSelectedLessonSlug(lessonSlug)
+    setStageFocus('core')
+  }
+
+  function handleLessonMemoryView(lessonSlug) {
+    setSelectedLessonSlug(lessonSlug)
+    setStageFocus('memory')
+  }
+
+  function handleLessonStageChange(lessonSlug) {
+    setSelectedLessonSlug(lessonSlug)
+    setStageFocus('memory')
+  }
+
+  async function handleMarkLessonCompleted(lessonSlug) {
+    const lesson = state.items.find((item) => item.slug === lessonSlug)
+    if (!lesson) return
+
+    const lessonCode = codeByLesson[lesson.slug] ?? starterCodeByLesson[lesson.slug] ?? '# Lesson code scaffold'
+    const isAlreadyCompleted = progressState.completedLessons.includes(lesson.slug)
+
+    if (!isAlreadyCompleted) {
+      setProgressState((current) => ({
+        completedLessons: [...current.completedLessons, lesson.slug],
+        lastLessonSlug: lesson.slug,
+      }))
+    }
+
+    try {
+      await updateLessonProgress(
+        lesson.slug,
+        {
+          status: 'completed',
+          attempts: 1,
+          lastCodeSnapshot: lessonCode,
+        },
+        'guest',
+      )
+    } catch (error) {
+      console.error('Failed to sync progress to backend', error)
+    }
+
+    onNotify?.('Progress Updated', `${lesson.title} marked as completed.`, 'success')
+  }
+
+  async function handleMarkCompleted() {
+    if (!selectedLesson) return
+    await handleMarkLessonCompleted(selectedLesson.slug)
+  }
+
+  function handleNextLesson() {
+    if (!state.items.length || !selectedLesson) return
+    const index = state.items.findIndex((lesson) => lesson.slug === selectedLesson.slug)
+    const next = state.items[(index + 1) % state.items.length]
+    if (next?.slug) setSelectedLessonSlug(next.slug)
+  }
+
   const completedSet = new Set(progressState.completedLessons)
 
   const totalLessons = state.items.length
   const completedCount = progressState.completedLessons.length
   const progressPercent = totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0
+  const visualScene = useMemo(
+    () => buildVisualScene(selectedLesson, activeCode, completedCount, totalLessons, progressPercent),
+    [selectedLesson, activeCode, completedCount, totalLessons, progressPercent],
+  )
 
   return (
     <>
@@ -445,28 +856,71 @@ export default function DojoPage({ onNotify }) {
                       {lessons.map((lesson) => {
                         const isActive = selectedLesson?.slug === lesson.slug
                         const isCompleted = completedSet.has(lesson.slug)
+                        const visual = getLessonVisual(lesson.slug)
 
                         return (
-                          <motion.button
+                          <motion.div
                             key={lesson.slug}
-                            type="button"
                             className={`lesson-item${isActive ? ' is-active' : ''}`}
-                            onClick={() => setSelectedLessonSlug(lesson.slug)}
                             whileHover={{ x: 4 }}
                             transition={{ duration: 0.15 }}
                           >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <span style={{ 
-                                width: '8px', height: '8px', borderRadius: '50%', flexShrink: 0,
-                                background: isCompleted ? 'var(--emerald)' : isActive ? 'var(--amber)' : 'rgba(255,255,255,0.2)'
-                              }} />
-                              <strong style={{ flex: 1 }}>
-                                {lesson.title}
-                                {isCompleted ? <span className="lesson-complete-pill">Done</span> : null}
-                              </strong>
+                            <button
+                              type="button"
+                              onClick={() => handleLessonStageChange(lesson.slug)}
+                              style={{
+                                width: '100%',
+                                background: 'transparent',
+                                border: 'none',
+                                color: 'inherit',
+                                textAlign: 'left',
+                                padding: 0,
+                                display: 'grid',
+                                gap: '8px',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span aria-hidden="true" style={visual.style}>
+                                  {visual.glyph}
+                                </span>
+                                <strong style={{ flex: 1 }}>
+                                  {lesson.title}
+                                  {isCompleted ? <span className="lesson-complete-pill">Done</span> : null}
+                                </strong>
+                                <span
+                                  aria-hidden="true"
+                                  style={{
+                                    width: 8,
+                                    height: 8,
+                                    borderRadius: '50%',
+                                    flexShrink: 0,
+                                    background: isCompleted
+                                      ? 'var(--emerald)'
+                                      : isActive
+                                        ? 'var(--amber)'
+                                        : 'rgba(255,255,255,0.20)',
+                                    boxShadow: isActive ? '0 0 12px rgba(245,158,11,0.45)' : 'none',
+                                  }}
+                                />
+                              </div>
+                              <span>{lesson.summary}</span>
+                            </button>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>
+                              <button type="button" className="action-button" style={{ margin: 0 }} onClick={() => handleLessonCoreView(lesson.slug)}>
+                                Core
+                              </button>
+                              <button type="button" className="action-button" style={{ margin: 0 }} onClick={() => handleLessonMemoryView(lesson.slug)}>
+                                Memory Visuals
+                              </button>
+                              <button type="button" className="action-button" style={{ margin: 0 }} onClick={() => handleMarkLessonCompleted(lesson.slug)}>
+                                Completed
+                              </button>
+                              <button type="button" className="action-button" style={{ margin: 0, marginLeft: 'auto' }} onClick={() => handleLessonStageChange(lesson.slug)}>
+                                Stage Change
+                              </button>
                             </div>
-                            <span>{lesson.summary}</span>
-                          </motion.button>
+                          </motion.div>
                         )
                       })}
                     </div>
@@ -490,46 +944,163 @@ export default function DojoPage({ onNotify }) {
               </div>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                 <span className="mini-pill" style={{ background: 'rgba(245,158,11,0.15)', color: 'var(--amber)' }}>{selectedLesson?.tier ?? 'Lesson'}</span>
-                <span className="mini-pill">Memory Visuals</span>
+                <span className="mini-pill">{stageFocus === 'core' ? 'Core Focus' : 'Memory Visuals'}</span>
               </div>
             </div>
             <p className="status-copy">
               {selectedLesson?.summary ?? 'Pick a lesson from the rail to populate the stage.'}
             </p>
 
-            <div className="stage-preview" aria-hidden="true" style={{ position: 'relative' }}>
-              <motion.div 
-                className="memory-box"
-                whileHover={{ scale: 1.05 }}
-                transition={{ type: 'spring', stiffness: 300 }}
-              >
-                <small>{stageModel.primaryLabel}</small>
-                <strong>{stageModel.primaryValue}</strong>
-              </motion.div>
-              <div className="pointer-line" />
-              <motion.div 
-                className="memory-box ghost-box"
-                whileHover={{ scale: 1.05 }}
-                transition={{ type: 'spring', stiffness: 300 }}
-              >
-                <small>{stageModel.secondaryLabel}</small>
-                <strong>{stageModel.secondaryValue}</strong>
-              </motion.div>
-            </div>
-
-              <div className="dojo-stage-notes" style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginTop: '20px', padding: '16px', background: 'rgba(255, 255, 255, 0.03)', borderRadius: '12px' }}>
-                {selectedLesson && completedSet.has(selectedLesson.slug) && (
-                  <span className="mini-pill" style={{ background: 'rgba(16,185,129,0.15)', color: 'var(--emerald)' }}>Completed</span>
-                )}
-                <span className="mini-pill">Visual-first metaphor</span>
-                {progressState.lastLessonSlug ? <span className="mini-pill">Last run: {progressState.lastLessonSlug}</span> : null}
-                {executionStats.lastExecutionTime > 0 && <span className="mini-pill">{executionStats.lastExecutionTime}ms</span>}
+              <div className="dojo-stage-toolbar">
+                <button
+                  type="button"
+                  className={`action-button${stageFocus === 'core' ? ' action-button-primary' : ''}`}
+                  onClick={() => setStageFocus('core')}
+                  disabled={!selectedLesson}
+                >
+                  Core View
+                </button>
+                <button
+                  type="button"
+                  className={`action-button${stageFocus === 'memory' ? ' action-button-primary' : ''}`}
+                  onClick={() => setStageFocus('memory')}
+                  disabled={!selectedLesson}
+                >
+                  Memory View
+                </button>
+                <button
+                  type="button"
+                  className="action-button"
+                  onClick={handleOpenEditorFromStage}
+                  disabled={!selectedLesson}
+                >
+                  Open Editor
+                </button>
+                <button
+                  type="button"
+                  className="action-button"
+                  onClick={handleOpenQuizFromStage}
+                  disabled={!selectedLesson}
+                >
+                  {selectedLesson?.quiz ? 'Open Quiz' : 'No Quiz'}
+                </button>
+                <button
+                  type="button"
+                  className="action-button"
+                  onClick={handleOpenCritiqueFromStage}
+                  disabled={aiState.status === 'requesting' || !selectedLesson}
+                >
+                  {aiState.status === 'requesting' ? 'Reviewing...' : 'Review Logic'}
+                </button>
               </div>
+
+              <div className="dojo-visual-board" aria-hidden="true">
+                <div className="dojo-visual-glow" />
+                <div className="stage-preview">
+                <motion.div 
+                  className="memory-box"
+                  whileHover={{ scale: 1.03 }}
+                  transition={{ type: 'spring', stiffness: 300 }}
+                >
+                  <small>{stageModel.primaryLabel}</small>
+                  <strong>{stageModel.primaryValue}</strong>
+                </motion.div>
+                <div className="pointer-line" />
+                <motion.div 
+                  className="memory-box ghost-box"
+                  whileHover={{ scale: 1.03 }}
+                  transition={{ type: 'spring', stiffness: 300 }}
+                >
+                  <small>{stageModel.secondaryLabel}</small>
+                  <strong>{stageModel.secondaryValue}</strong>
+                </motion.div>
+              </div>
+
+              <div className="dojo-visual-grid">
+                {visualScene.columns.map((column, columnIndex) => (
+                  <div key={`${visualScene.title}-${columnIndex}`} className="dojo-visual-column">
+                    {column.map((entry) => (
+                      <div key={`${entry.label}-${entry.value}`} className="dojo-visual-card">
+                        <span>{entry.label}</span>
+                        <strong>{entry.value}</strong>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+
+                <div className="dojo-visual-core">
+                  <div className="dojo-visual-core-ring" />
+                  <div className="dojo-visual-core-ring dojo-visual-core-ring-secondary" />
+                  <div
+                    className="dojo-visual-core-content"
+                    style={stageFocus === 'core' ? { transform: 'scale(1.08)', transition: 'transform 180ms ease-out' } : undefined}
+                  >
+                    <span>{visualScene.orbitLabel}</span>
+                    <strong>{visualScene.orbitValue}</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div className="dojo-visual-caption">
+                <strong>{visualScene.title}</strong>
+                <p>{visualScene.detail}</p>
+              </div>
+
+              <div className="transport-row dojo-stage-runbar" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '12px' }}>
+                <button
+                  type="button"
+                  className="action-button action-button-primary"
+                  onClick={handleRunCode}
+                  disabled={runtimeState.status === 'booting' || runtimeState.status === 'running' || !selectedLesson}
+                  style={{ margin: 0 }}
+                >
+                  {runtimeState.status === 'running' ? '⏳ Running...' : '▶ Run'}
+                </button>
+                <button
+                  type="button"
+                  className="action-button"
+                  onClick={handleResetCode}
+                  disabled={!selectedLesson}
+                  style={{ margin: 0 }}
+                >
+                  Reset Code
+                </button>
+                <button
+                  type="button"
+                  className="action-button"
+                  onClick={handleMarkCompleted}
+                  disabled={!selectedLesson}
+                  style={{ margin: 0 }}
+                >
+                  Mark Completed
+                </button>
+                <button
+                  type="button"
+                  className="action-button"
+                  onClick={handleNextLesson}
+                  disabled={!state.items.length || !selectedLesson}
+                  style={{ margin: 0, marginLeft: 'auto' }}
+                >
+                  Next Lesson
+                </button>
+              </div>
+
+              <div className="dojo-stage-notes">
+                {selectedLesson && completedSet.has(selectedLesson.slug) && (
+                  <span className="mini-pill dojo-note-pill dojo-note-pill-success">Completed</span>
+                )}
+                {visualScene.chips.map((chip) => (
+                  <span key={chip} className="mini-pill dojo-note-pill">{chip}</span>
+                ))}
+                {progressState.lastLessonSlug ? <span className="mini-pill dojo-note-pill">Last run: {progressState.lastLessonSlug}</span> : null}
+                {executionStats.lastExecutionTime > 0 && <span className="mini-pill dojo-note-pill">{executionStats.lastExecutionTime}ms</span>}
+              </div>
+            </div>
             </motion.section>
 
           <section className="content-grid dojo-support-grid">
             {selectedLesson?.content && (
-              <article className="glass-panel content-card dojo-explanation-card" style={{ gridColumn: '1 / -1' }}>
+              <article ref={explanationRef} className="glass-panel content-card dojo-explanation-card" style={{ gridColumn: '1 / -1' }}>
                 <div className="panel-heading">
                   <div>
                     <p className="card-tag text-cyan">Concept</p>
@@ -542,7 +1113,7 @@ export default function DojoPage({ onNotify }) {
               </article>
             )}
             
-            <article className="glass-panel content-card dojo-editor-card">
+            <article ref={editorRef} className="glass-panel content-card dojo-editor-card">
               <div className="panel-heading">
                 <div>
                   <p className="card-tag text-amber">Integrated IDE</p>
@@ -653,6 +1224,7 @@ export default function DojoPage({ onNotify }) {
               <AnimatePresence>
                 {quizState.status === 'visible' && selectedLesson?.quiz && (
                   <motion.section 
+                    ref={quizRef}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
@@ -769,7 +1341,7 @@ export default function DojoPage({ onNotify }) {
               </AnimatePresence>
             </article>
 
-            <article className="glass-panel content-card dojo-side-card">
+            <article ref={critiqueRef} className="glass-panel content-card dojo-side-card">
               <div className="panel-heading">
                 <div>
                   <p className="card-tag text-purple">Sensei Assistance</p>
@@ -834,6 +1406,47 @@ export default function DojoPage({ onNotify }) {
               ) : (
                 <p className="status-copy" style={{ fontSize: '0.8rem' }}>Complete the active lesson to unlock Laboratory handoff.</p>
               )}
+
+              {/* Overall Mastery Stat */}
+              <div style={{ padding: '16px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', marginTop: '20px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                <div className="panel-heading" style={{ marginBottom: '16px' }}>
+                  <div>
+                    <p className="card-tag" style={{ color: 'var(--amber)' }}>Rank</p>
+                    <h3 style={{ fontSize: '1.1rem' }}>Overall Mastery</h3>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <div style={{ position: 'relative', width: '60px', height: '60px' }}>
+                    <svg viewBox="0 0 36 36" style={{ width: '100%', height: '100%' }}>
+                      <path
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                        fill="none"
+                        stroke="rgba(255,255,255,0.05)"
+                        strokeWidth="3"
+                      />
+                      <path
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                        fill="none"
+                        stroke="var(--amber)"
+                        strokeWidth="3"
+                        strokeDasharray={`${progressPercent}, 100`}
+                        style={{ transition: 'stroke-dasharray 1s ease' }}
+                      />
+                    </svg>
+                    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', fontWeight: 'bold' }}>
+                      {progressPercent}%
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '1rem', fontWeight: 'bold', color: 'var(--text)' }}>
+                      {progressPercent >= 100 ? 'Black Belt' : progressPercent >= 75 ? 'Brown Belt' : progressPercent >= 50 ? 'Green Belt' : progressPercent >= 25 ? 'Yellow Belt' : 'White Belt'}
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: '4px' }}>
+                      {completedCount} of {totalLessons} katas
+                    </div>
+                  </div>
+                </div>
+              </div>
             </article>
           </section>
         </div>

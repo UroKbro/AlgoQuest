@@ -128,6 +128,7 @@ class PathAnalyticsResponse(BaseModel):
     frictionPoints: list[str]
     masteryRadar: dict[str, int]
     weeklyGate: dict[str, Any]
+    weeklyHistory: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class ProjectPayload(BaseModel):

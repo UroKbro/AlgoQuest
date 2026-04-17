@@ -174,10 +174,28 @@ ALGORITHMS = [
         "summary": "Halve the search space while preserving sorted bounds.",
     },
     {
+        "slug": "bubble-sort",
+        "name": "Bubble Sort",
+        "family": "Sorting",
+        "summary": "Compare adjacent values and bubble larger elements to the end.",
+    },
+    {
+        "slug": "insertion-sort",
+        "name": "Insertion Sort",
+        "family": "Sorting",
+        "summary": "Grow a sorted prefix by inserting each new value into place.",
+    },
+    {
         "slug": "merge-sort",
         "name": "Merge Sort",
         "family": "Sorting",
         "summary": "Split, merge, and visualize stable divide-and-conquer flow.",
+    },
+    {
+        "slug": "quick-sort",
+        "name": "Quick Sort",
+        "family": "Sorting",
+        "summary": "Partition around a pivot and recursively tighten both sides.",
     },
     {
         "slug": "dijkstra",
@@ -199,6 +217,24 @@ SIMULATIONS = [
         "name": "Raft Failover",
         "scale": "cluster",
         "summary": "Stress consensus timing with injected leader failures.",
+    },
+    {
+        "slug": "vortex-ring",
+        "name": "Vortex Ring",
+        "scale": "orbital",
+        "summary": "Drive the field into rotational flow around a glowing central core.",
+    },
+    {
+        "slug": "pulse-lattice",
+        "name": "Pulse Lattice",
+        "scale": "grid",
+        "summary": "Snap particles toward a living grid that breathes in synchronized waves.",
+    },
+    {
+        "slug": "attractor-map",
+        "name": "Dual Attractor Map",
+        "scale": "field",
+        "summary": "Split the swarm between two moving attractors and watch the paths interfere.",
     },
 ]
 

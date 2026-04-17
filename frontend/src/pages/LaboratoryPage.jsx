@@ -201,6 +201,115 @@ const algorithmVisualizers = {
       return snapshots
     },
   },
+  'insertion-sort': {
+    title: 'Insertion Sort',
+    mode: 'bars',
+    codeLines: [
+      'def insertion_sort(values):',
+      '    for i in range(1, len(values)):',
+      '        key = values[i]',
+      '        j = i - 1',
+      '        while j >= 0 and values[j] > key:',
+      '            values[j + 1] = values[j]; j -= 1',
+      '        values[j + 1] = key',
+    ],
+    complexity: { time: 'O(N^2)', space: 'O(1)' },
+    getStructureState(snapshot) {
+      return {
+        'Sorted Prefix': snapshot.sortedCount,
+        'Key Value': snapshot.keyValue ?? 'none',
+        'Insertion Slot': snapshot.insertionIndex ?? 'pending',
+      }
+    },
+    buildSnapshots() {
+      const values = [29, 10, 14, 37, 13, 5]
+      const snapshots = [
+        {
+          line: 1,
+          message: 'Start with the first value treated as a sorted prefix.',
+          anchorLabel: 'Start',
+          values: [...values],
+          activeRange: [0, 0],
+          mergedIndices: [0],
+          sortedCount: 1,
+          keyValue: null,
+          insertionIndex: null,
+        },
+      ]
+
+      for (let i = 1; i < values.length; i += 1) {
+        const key = values[i]
+        let j = i - 1
+
+        snapshots.push({
+          line: 3,
+          message: `Lift ${key} out and compare it against the sorted prefix.`,
+          anchorLabel: `key ${key}`,
+          values: [...values],
+          activeRange: [0, i],
+          mergedIndices: Array.from({ length: i }, (_, index) => index),
+          sortedCount: i,
+          keyValue: key,
+          insertionIndex: i,
+        })
+
+        while (j >= 0 && values[j] > key) {
+          snapshots.push({
+            line: 5,
+            message: `${values[j]} is larger than ${key}, so shift it right.`,
+            values: [...values],
+            activeRange: [0, i],
+            mid: j,
+            mergedIndices: Array.from({ length: i }, (_, index) => index),
+            sortedCount: i,
+            keyValue: key,
+            insertionIndex: j,
+          })
+
+          values[j + 1] = values[j]
+          j -= 1
+
+          snapshots.push({
+            line: 6,
+            message: 'The gap moves left until the correct slot opens.',
+            values: [...values],
+            activeRange: [0, i],
+            mergedIndices: Array.from({ length: i }, (_, index) => index),
+            sortedCount: i,
+            keyValue: key,
+            insertionIndex: j + 1,
+          })
+        }
+
+        values[j + 1] = key
+        snapshots.push({
+          line: 7,
+          message: `${key} slides into index ${j + 1}, extending the sorted prefix.`,
+          anchorLabel: `insert ${key}`,
+          values: [...values],
+          activeRange: [0, i],
+          mergedIndices: Array.from({ length: i + 1 }, (_, index) => index),
+          sortedCount: i + 1,
+          keyValue: key,
+          insertionIndex: j + 1,
+        })
+      }
+
+      snapshots.push({
+        line: 7,
+        message: 'Every value has been inserted and the array is sorted.',
+        anchorLabel: 'Done',
+        values: [...values],
+        activeRange: [0, values.length - 1],
+        mergedIndices: Array.from({ length: values.length }, (_, index) => index),
+        sortedCount: values.length,
+        keyValue: null,
+        insertionIndex: null,
+      })
+
+      return snapshots
+    },
+  },
   'merge-sort': {
     title: 'Merge Sort',
     mode: 'bars',
@@ -299,6 +408,132 @@ const algorithmVisualizers = {
         values: working.slice(),
         activeRange: [0, working.length - 1],
         mergedIndices: Array.from({ length: working.length }, (_, index) => index),
+      })
+
+      return snapshots
+    },
+  },
+  'quick-sort': {
+    title: 'Quick Sort',
+    mode: 'bars',
+    codeLines: [
+      'def quick_sort(values, low, high):',
+      '    if low >= high: return',
+      '    pivot = values[high]',
+      '    split = partition(values, low, high, pivot)',
+      '    quick_sort(values, low, split - 1)',
+      '    quick_sort(values, split + 1, high)',
+    ],
+    complexity: { time: 'O(N log N) avg', space: 'O(log N)' },
+    getStructureState(snapshot) {
+      return {
+        'Active Partition': snapshot.activeRange ? `${snapshot.activeRange[0]}–${snapshot.activeRange[1]}` : 'none',
+        'Pivot': snapshot.pivotValue ?? 'none',
+        'Finalized Pivots': snapshot.sortedCount ?? 0,
+      }
+    },
+    buildSnapshots() {
+      const values = [33, 10, 55, 71, 29, 3, 18]
+      const finalized = new Set()
+      const snapshots = [
+        {
+          line: 1,
+          message: 'Start with a full partition and choose pivots to split the work.',
+          anchorLabel: 'Start',
+          values: [...values],
+          activeRange: [0, values.length - 1],
+          mergedIndices: [],
+          sortedCount: 0,
+          pivotValue: null,
+          mid: null,
+        },
+      ]
+
+      function finalizedIndices() {
+        return [...finalized].sort((left, right) => left - right)
+      }
+
+      function quickSort(low, high) {
+        if (low >= high) {
+          if (low === high) {
+            finalized.add(low)
+          }
+          return
+        }
+
+        const pivotValue = values[high]
+        let storeIndex = low
+
+        snapshots.push({
+          line: 3,
+          message: `Choose ${pivotValue} as the pivot for ${low}-${high}.`,
+          anchorLabel: `pivot ${pivotValue}`,
+          values: [...values],
+          activeRange: [low, high],
+          mergedIndices: finalizedIndices(),
+          sortedCount: finalized.size,
+          pivotValue,
+          mid: high,
+        })
+
+        for (let scan = low; scan < high; scan += 1) {
+          snapshots.push({
+            line: 4,
+            message: `Compare ${values[scan]} with pivot ${pivotValue}.`,
+            values: [...values],
+            activeRange: [low, high],
+            mergedIndices: finalizedIndices(),
+            sortedCount: finalized.size,
+            pivotValue,
+            mid: scan,
+          })
+
+          if (values[scan] <= pivotValue) {
+            ;[values[storeIndex], values[scan]] = [values[scan], values[storeIndex]]
+            snapshots.push({
+              line: 4,
+              message: `${values[storeIndex]} belongs on the left side, so it moves into the partition.`,
+              values: [...values],
+              activeRange: [low, high],
+              mergedIndices: finalizedIndices(),
+              sortedCount: finalized.size,
+              pivotValue,
+              mid: storeIndex,
+            })
+            storeIndex += 1
+          }
+        }
+
+        ;[values[storeIndex], values[high]] = [values[high], values[storeIndex]]
+        finalized.add(storeIndex)
+        snapshots.push({
+          line: 4,
+          message: `Pivot ${pivotValue} lands at index ${storeIndex}, locking one position.`,
+          anchorLabel: `split ${storeIndex}`,
+          values: [...values],
+          activeRange: [low, high],
+          mergedIndices: finalizedIndices(),
+          sortedCount: finalized.size,
+          pivotValue,
+          mid: storeIndex,
+        })
+
+        quickSort(low, storeIndex - 1)
+        quickSort(storeIndex + 1, high)
+      }
+
+      quickSort(0, values.length - 1)
+
+      snapshots.push({
+        line: 6,
+        message: 'All partitions have collapsed and the array is sorted.',
+        anchorLabel: 'Done',
+        values: [...values],
+        activeRange: [0, values.length - 1],
+        mergedIndices: Array.from({ length: values.length }, (_, index) => index),
+        sortedCount: values.length,
+        pivotValue: null,
+        mid: null,
       })
 
       return snapshots
@@ -425,6 +660,48 @@ function buildVisualizer(slug) {
   }
 }
 
+function buildCanvasSignals(visualizer, currentSnapshot, structureState, stepIndex) {
+  const structureEntries = Object.entries(structureState)
+  const progressPercent = visualizer.snapshots.length > 1
+    ? Math.round((stepIndex / (visualizer.snapshots.length - 1)) * 100)
+    : 100
+
+  return {
+    progressPercent,
+    headline: currentSnapshot.anchorLabel ?? 'Live phase',
+    stats: [
+      {
+        label: 'Playback',
+        value: `${stepIndex + 1}/${visualizer.snapshots.length}`,
+      },
+      {
+        label: 'Anchors',
+        value: String(visualizer.anchors.length),
+      },
+      {
+        label: 'Progress',
+        value: `${progressPercent}%`,
+      },
+    ],
+    detailCards: structureEntries.slice(0, 4).map(([label, value]) => ({
+      label,
+      value: String(value),
+    })),
+    legend:
+      visualizer.mode === 'graph'
+        ? [
+            { tone: 'cyan', label: 'Current node' },
+            { tone: 'emerald', label: 'Visited node' },
+            { tone: 'purple', label: 'Frontier node' },
+          ]
+        : [
+            { tone: 'cyan', label: 'Active focus' },
+            { tone: 'emerald', label: 'Locked result' },
+            { tone: 'slate', label: 'Idle values' },
+          ],
+  }
+}
+
 function ArraySnapshotView({ snapshot, mode, onAnchorClick }) {
   const maxValue = Math.max(...snapshot.values)
 
@@ -438,11 +715,12 @@ function ArraySnapshotView({ snapshot, mode, onAnchorClick }) {
         const isMid = snapshot.mid === index
         const isFound = snapshot.foundIndex === index
         const isMerged = snapshot.mergedIndices?.includes(index)
+        const isComparing = snapshot.comparing?.includes(index)
 
         return (
           <div
             key={`${mode}-${index}-${value}`}
-            className={`array-node${inRange ? ' is-in-range' : ''}${isMid ? ' is-mid' : ''}${isFound ? ' is-found' : ''}${isMerged ? ' is-merged' : ''}`}
+            className={`array-node${inRange ? ' is-in-range' : ''}${isMid ? ' is-mid' : ''}${isFound ? ' is-found' : ''}${isMerged ? ' is-merged' : ''}${isComparing ? ' is-comparing' : ''}`}
             onClick={() => onAnchorClick?.(`index ${index}`)}
             style={mode === 'bars' ? { height: `${Math.max(18, (value / maxValue) * 180)}px`, cursor: 'help' } : { cursor: 'help' }}
           >
@@ -626,6 +904,10 @@ export default function LaboratoryPage() {
   const structureState = useMemo(() => {
     return visualizer.getStructureState?.(currentSnapshot) ?? {}
   }, [visualizer, currentSnapshot])
+  const canvasSignals = useMemo(
+    () => buildCanvasSignals(visualizer, currentSnapshot, structureState, stepIndex),
+    [visualizer, currentSnapshot, structureState, stepIndex],
+  )
 
   useEffect(() => {
     if (!isPlaying) {
@@ -735,12 +1017,88 @@ export default function LaboratoryPage() {
 
               <p className="status-copy">{currentSnapshot.message}</p>
 
-              <div className="visualizer-frame">
-                {visualizer.mode === 'graph' ? (
-                  <GraphSnapshotView snapshot={currentSnapshot} onAnchorClick={handleGetHint} />
-                ) : (
-                  <ArraySnapshotView snapshot={currentSnapshot} mode={visualizer.mode} onAnchorClick={handleGetHint} />
-                )}
+              <div className="visualizer-frame laboratory-canvas-shell">
+                <div className="laboratory-canvas-backdrop" />
+                <div className="laboratory-canvas-header">
+                  <div>
+                    <p className="card-tag text-cyan">Canvas Phase</p>
+                    <h4>{canvasSignals.headline}</h4>
+                    <p className="status-copy">{currentSnapshot.message}</p>
+                  </div>
+                  <div className="laboratory-progress-dial" aria-hidden="true">
+                    <svg viewBox="0 0 36 36">
+                      <path
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                        fill="none"
+                        stroke="rgba(255,255,255,0.08)"
+                        strokeWidth="2.5"
+                      />
+                      <path
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                        fill="none"
+                        stroke="var(--cyan)"
+                        strokeWidth="2.5"
+                        strokeDasharray={`${canvasSignals.progressPercent}, 100`}
+                      />
+                    </svg>
+                    <strong>{canvasSignals.progressPercent}%</strong>
+                  </div>
+                </div>
+
+                <div className="laboratory-canvas-stats">
+                  {canvasSignals.stats.map((stat) => (
+                    <div key={stat.label} className="laboratory-canvas-stat-card">
+                      <span>{stat.label}</span>
+                      <strong>{stat.value}</strong>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="laboratory-canvas-main">
+                  <div className="laboratory-canvas-stage">
+                    {visualizer.mode === 'graph' ? (
+                      <GraphSnapshotView snapshot={currentSnapshot} onAnchorClick={handleGetHint} />
+                    ) : (
+                      <ArraySnapshotView snapshot={currentSnapshot} mode={visualizer.mode} onAnchorClick={handleGetHint} />
+                    )}
+                  </div>
+
+                  <aside className="laboratory-canvas-sidebar">
+                    <section className="laboratory-canvas-card">
+                      <div className="panel-heading">
+                        <div>
+                          <p className="card-tag text-purple">Live Variables</p>
+                          <h4>Signal Rack</h4>
+                        </div>
+                      </div>
+                      <div className="laboratory-canvas-detail-grid">
+                        {canvasSignals.detailCards.map((card) => (
+                          <div key={card.label} className="laboratory-canvas-detail-card">
+                            <span>{card.label}</span>
+                            <strong>{card.value}</strong>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+
+                    <section className="laboratory-canvas-card">
+                      <div className="panel-heading">
+                        <div>
+                          <p className="card-tag text-cyan">Legend</p>
+                          <h4>Visual Key</h4>
+                        </div>
+                      </div>
+                      <div className="laboratory-canvas-legend">
+                        {canvasSignals.legend.map((item) => (
+                          <div key={item.label} className="laboratory-canvas-legend-item">
+                            <span className={`laboratory-canvas-legend-swatch is-${item.tone}`} />
+                            <strong>{item.label}</strong>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  </aside>
+                </div>
               </div>
 
               <div className="transport-row">

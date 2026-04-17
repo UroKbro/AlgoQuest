@@ -151,7 +151,8 @@ export default function WorldPage() {
       setAiStatus('ready')
       // Store in history
       setAiHistory((prev) => {
-        const entry = { prompt: 'Logic Review', response: res.critique?.slice(0, 80) + '...' ?? 'Review complete', timestamp: new Date().toLocaleTimeString() }
+        const critiquePreview = res.critique ? `${res.critique.slice(0, 80)}...` : 'Review complete'
+        const entry = { prompt: 'Logic Review', response: critiquePreview, timestamp: new Date().toLocaleTimeString() }
         return [entry, ...prev].slice(0, 3)
       })
     } catch (error) {
@@ -185,16 +186,9 @@ export default function WorldPage() {
 
         setStatus('ready')
       })
-      .catch(() => {
-        // Fallback mock
-        const mock = [
-          { slug: 'drone-swarm', name: 'Drone Swarm Pilot', difficulty: 'Intermediate', summary: 'Coordinate 500+ logic drones in a unified swarm.' },
-          { slug: 'traffic-relay', name: 'Packet Relay Map', difficulty: 'Advanced', summary: 'Architect a high-throughput network packet router.' }
-        ]
-        setBlueprints(mock)
-        setSelectedBlueprint(mock[0])
-        setCode('# Start implementation...')
-        setStatus('ready')
+      .catch((error) => {
+        setStatus('error')
+        setSaveState({ status: 'error', message: error.message })
       })
   }, [])
 

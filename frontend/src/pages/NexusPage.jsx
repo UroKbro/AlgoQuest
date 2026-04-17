@@ -36,55 +36,13 @@ export default function NexusPage() {
       })
       .catch((error) => {
         if (!cancelled) {
-          // Robust Fallback Data for UI Prototype
           setState({
-            status: 'ready',
-            items: [
-              { slug: 'dojo', name: 'The Dojo', eyebrow: 'Foundations', description: 'Master CS fundamentals and Python logic in a structured arena.', accent: 'amber' },
-              { slug: 'laboratory', name: 'The Laboratory', eyebrow: 'Visualization', description: 'Deep-dive into algorithm mechanics with 60FPS visual traces.', accent: 'cyan' },
-              { slug: 'sandbox', name: 'The Sandbox', eyebrow: 'Exploration', description: 'High-scale emergent complexity and chaotic logic testing.', accent: 'purple' },
-              { slug: 'world', name: 'The World', eyebrow: 'Application', description: 'Build real-world projects and refine system architectures.', accent: 'emerald' },
-            ],
-            continuity: {
-              title: 'Recursive Sorting Trace',
-              realm: 'Laboratory',
-              summary: 'You were halfway through a Merge Sort visualization. The AI noticed a logic bottleneck at Depth 3.',
-              ctaLabel: 'Resume Logic Trace',
-              href: '/laboratory',
-              visual: { primaryLabel: 'Depth', primaryValue: '3', secondaryLabel: 'Nodes', secondaryValue: '128' }
-            },
-            weeklyStats: [
-              { day: 'Mon', activeMinutes: 45, logicProblemsSolved: 4, efficiency: 78, focusScore: 82 },
-              { day: 'Tue', activeMinutes: 30, logicProblemsSolved: 2, efficiency: 65, focusScore: 71 },
-              { day: 'Wed', activeMinutes: 65, logicProblemsSolved: 7, efficiency: 88, focusScore: 89 },
-              { day: 'Thu', activeMinutes: 20, logicProblemsSolved: 1, efficiency: 52, focusScore: 60 },
-              { day: 'Fri', activeMinutes: 80, logicProblemsSolved: 9, efficiency: 92, focusScore: 94 },
-              { day: 'Sat', activeMinutes: 10, logicProblemsSolved: 0, efficiency: 40, focusScore: 45 },
-              { day: 'Sun', activeMinutes: 55, logicProblemsSolved: 5, efficiency: 85, focusScore: 87 },
-            ],
-            focus: {
-              label: 'Recursive Depth Mastery',
-              summary: 'Your recent sorting gate suggests a slight friction with recursion base cases. Practice in the Dojo is recommended.',
-              recommendedRealm: 'dojo'
-            },
-            analytics: {
-              strengths: ['Iterative Logic', 'Space Complexity', 'Pattern Recognition', 'Optimization'],
-              frictionPoints: ['Recursion Depth', 'Dynamic Selection', 'Edge Cases', 'Time Complexity'],
-              masteryRadar: {
-                'Algorithms': 78,
-                'Data Structures': 85,
-                'Problem Solving': 72,
-                'Code Quality': 80,
-                'Performance': 68,
-                'Adaptability': 75
-              },
-              weeklyGate: {
-                score: 82,
-                status: 'completed',
-                puzzlesRequired: 10,
-                codeSnippetsRequired: 5
-              }
-            },
+            status: 'error',
+            items: [],
+            continuity: null,
+            weeklyStats: [],
+            focus: null,
+            analytics: null,
             message: error.message,
           })
         }
@@ -147,7 +105,20 @@ export default function NexusPage() {
         accent="cyan"
       />
 
-      {state.status === 'ready' ? (
+      {state.status === 'error' ? (
+        <div
+          className="glass-panel"
+          style={{
+            padding: '16px',
+            borderRadius: 16,
+            border: '1px solid rgba(239,68,68,0.25)',
+            background: 'rgba(239,68,68,0.06)',
+            color: '#fecaca',
+          }}
+        >
+          Unable to load your Nexus stats: {state.message}
+        </div>
+      ) : state.status === 'ready' ? (
         <div className="nexus-layout-stack" style={{ display: 'grid', gap: '24px' }}>
           <section className="nexus-top-grid">
             {/* Quest Continuity Hero */}
@@ -255,43 +226,34 @@ export default function NexusPage() {
            <section className="stats-dashboard" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginTop: '8px', marginBottom: '16px' }}>
              {computedStats && (
                <>
-                 <div className="glass-panel stat-card" style={{ padding: '20px', borderRadius: '16px', position: 'relative' }}>
-                   <div className="stat-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                     <span className="stat-label" style={{ fontSize: '0.8rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Focus</span>
-                     <span className="stat-trend" style={{ fontSize: '0.75rem', color: 'var(--emerald)', background: 'rgba(16, 185, 129, 0.1)', padding: '2px 8px', borderRadius: '12px' }}>+12%</span>
-                   </div>
+                  <div className="glass-panel stat-card" style={{ padding: '20px', borderRadius: '16px', position: 'relative' }}>
+                    <div className="stat-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                      <span className="stat-label" style={{ fontSize: '0.8rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Focus</span>
+                    </div>
                    <div className="stat-value" style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--cyan)', marginBottom: '4px' }}>
                      {computedStats.totalMinutes}<span style={{ fontSize: '1rem', color: 'var(--muted)', marginLeft: '4px' }}>min</span>
                    </div>
                    <div className="stat-subtitle" style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
                      {computedStats.dailyAverageMinutes} min daily average
                    </div>
-                   <div className="stat-progress" style={{ height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', marginTop: '12px', overflow: 'hidden' }}>
-                     <div style={{ width: '75%', height: '100%', background: 'var(--cyan)', borderRadius: '2px' }}></div>
-                   </div>
-                 </div>
+                  </div>
 
-                 <div className="glass-panel stat-card" style={{ padding: '20px', borderRadius: '16px', position: 'relative' }}>
-                   <div className="stat-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                     <span className="stat-label" style={{ fontSize: '0.8rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Problems Solved</span>
-                     <span className="stat-trend" style={{ fontSize: '0.75rem', color: 'var(--purple)', background: 'rgba(168, 85, 247, 0.1)', padding: '2px 8px', borderRadius: '12px' }}>+8</span>
-                   </div>
+                  <div className="glass-panel stat-card" style={{ padding: '20px', borderRadius: '16px', position: 'relative' }}>
+                    <div className="stat-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                      <span className="stat-label" style={{ fontSize: '0.8rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Problems Solved</span>
+                    </div>
                    <div className="stat-value" style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--purple)', marginBottom: '4px' }}>
                      {computedStats.totalProblems}
                    </div>
                    <div className="stat-subtitle" style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
                      {Math.round(computedStats.totalProblems / 7)} per day
                    </div>
-                   <div className="stat-progress" style={{ height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', marginTop: '12px', overflow: 'hidden' }}>
-                     <div style={{ width: '68%', height: '100%', background: 'var(--purple)', borderRadius: '2px' }}></div>
-                   </div>
-                 </div>
+                  </div>
 
-                 <div className="glass-panel stat-card" style={{ padding: '20px', borderRadius: '16px', position: 'relative' }}>
-                   <div className="stat-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                     <span className="stat-label" style={{ fontSize: '0.8rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Efficiency</span>
-                     <span className="stat-trend" style={{ fontSize: '0.75rem', color: 'var(--emerald)', background: 'rgba(16, 185, 129, 0.1)', padding: '2px 8px', borderRadius: '12px' }}>+5%</span>
-                   </div>
+                  <div className="glass-panel stat-card" style={{ padding: '20px', borderRadius: '16px', position: 'relative' }}>
+                    <div className="stat-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                      <span className="stat-label" style={{ fontSize: '0.8rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Efficiency</span>
+                    </div>
                    <div className="stat-value" style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--emerald)', marginBottom: '4px' }}>
                      {computedStats.avgEfficiency}<span style={{ fontSize: '1rem', color: 'var(--muted)', marginLeft: '4px' }}>%</span>
                    </div>
@@ -301,11 +263,10 @@ export default function NexusPage() {
                    <CircularProgress value={computedStats.avgEfficiency} color="var(--emerald)" size={60} style={{ position: 'absolute', right: '16px', top: '20px', opacity: 0.7 }} />
                  </div>
 
-                 <div className="glass-panel stat-card" style={{ padding: '20px', borderRadius: '16px', position: 'relative' }}>
-                   <div className="stat-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                     <span className="stat-label" style={{ fontSize: '0.8rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Active Streak</span>
-                     <span className="stat-trend" style={{ fontSize: '0.75rem', color: 'var(--amber)', background: 'rgba(245, 158, 11, 0.1)', padding: '2px 8px', borderRadius: '12px' }}>🔥 {computedStats.streak} days</span>
-                   </div>
+                  <div className="glass-panel stat-card" style={{ padding: '20px', borderRadius: '16px', position: 'relative' }}>
+                    <div className="stat-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                      <span className="stat-label" style={{ fontSize: '0.8rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Active Streak</span>
+                    </div>
                    <div className="stat-value" style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--amber)', marginBottom: '4px' }}>
                      {computedStats.streak}<span style={{ fontSize: '1rem', color: 'var(--muted)', marginLeft: '4px' }}>days</span>
                    </div>
@@ -431,69 +392,36 @@ export default function NexusPage() {
           </section>
 
 <section className="realm-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
-             {realmCards.map((realm, index) => {
-               const realmProgress = {
-                 dojo: { completed: 12, total: 25, lastActivity: '2 days ago', streak: 3 },
-                 laboratory: { completed: 8, total: 18, lastActivity: 'Yesterday', streak: 5 },
-                 sandbox: { completed: 15, total: 30, lastActivity: '3 hours ago', streak: 7 },
-                 world: { completed: 6, total: 15, lastActivity: '1 week ago', streak: 1 }
-               }
-               
-               const progress = realmProgress[realm.slug] || { completed: 0, total: 1, lastActivity: 'No activity', streak: 0 }
-               const progressPercent = Math.round((progress.completed / progress.total) * 100)
-               
-               return (
-              <NavLink
-                key={realm.slug}
-                to={`/${realm.slug}`}
-                className={`realm-card glass-panel high-impact-card accent-${realm.accent}`}
-                style={{ textDecoration: 'none', color: 'inherit' }}
-              >
+              {realmCards.map((realm) => {
+                return (
+               <NavLink
+                 key={realm.slug}
+                 to={`/${realm.slug}`}
+                 className={`realm-card glass-panel high-impact-card accent-${realm.accent}`}
+                 style={{ textDecoration: 'none', color: 'inherit' }}
+               >
 <div>
-                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-                     <span className="card-tag">{realm.eyebrow}</span>
-                     <div className="realm-progress-badge" style={{ fontSize: '0.75rem', color: 'var(--muted)', background: 'rgba(255,255,255,0.05)', padding: '4px 8px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                       <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: progress.streak > 0 ? 'var(--emerald)' : 'var(--muted)' }}></span>
-                       {progress.streak} day streak
-                     </div>
-                   </div>
-                   <h3 style={{ fontSize: '1.5rem', marginBottom: '8px' }}>{realm.name}</h3>
-                   <p className="realm-desc" style={{ color: 'var(--muted)', fontSize: '0.95rem', lineHeight: '1.5', marginBottom: '16px' }}>{realm.description}</p>
-                   
-                   {/* Progress Bar */}
-                   <div className="realm-progress" style={{ marginBottom: '12px' }}>
-                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '6px' }}>
-                       <span style={{ color: 'var(--muted)' }}>Progress</span>
-                       <span style={{ color: 'var(--accent)', fontWeight: '600' }}>{progressPercent}%</span>
-                     </div>
-                     <div style={{ height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
-                       <motion.div 
-                         initial={{ width: 0 }}
-                         animate={{ width: `${progressPercent}%` }}
-                         transition={{ duration: 1, delay: index * 0.1 }}
-                         style={{ height: '100%', background: `var(--${realm.accent})`, borderRadius: '3px' }}
-                       />
-                     </div>
-                     <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: '4px' }}>
-                       {progress.completed}/{progress.total} challenges • Last: {progress.lastActivity}
-                     </div>
-                   </div>
-                 </div>
-                 <div className="realm-footer" style={{ marginTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                   <div className="quick-actions" style={{ display: 'flex', gap: '8px' }}>
-                     <button className="quick-action-btn" style={{ padding: '6px 12px', fontSize: '0.75rem', background: 'rgba(var(--accent-rgb), 0.1)', color: 'var(--accent)', border: '1px solid rgba(var(--accent-rgb), 0.2)', borderRadius: '8px', cursor: 'pointer', transition: 'all 0.2s ease' }} onMouseEnter={e => e.target.style.background = 'rgba(var(--accent-rgb), 0.2)'} onMouseLeave={e => e.target.style.background = 'rgba(var(--accent-rgb), 0.1)'}>
-                       Quick Start
-                     </button>
-                     <button className="quick-action-btn" style={{ padding: '6px 12px', fontSize: '0.75rem', background: 'transparent', color: 'var(--muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', cursor: 'pointer', transition: 'all 0.2s ease' }} onMouseEnter={e => e.target.style.borderColor = 'rgba(var(--accent-rgb), 0.3)'} onMouseLeave={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}>
-                       Stats
-                     </button>
-                   </div>
-                   <span className="launch-indicator" style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--accent)', opacity: 0.8, transition: 'opacity 0.2s ease' }} onMouseEnter={e => e.target.style.opacity = '1'} onMouseLeave={e => e.target.style.opacity = '0.8'}>Launch →</span>
-                 </div>
-</NavLink>
-               )
-             })}
-           </section>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                      <span className="card-tag">{realm.eyebrow}</span>
+                    </div>
+                    <h3 style={{ fontSize: '1.5rem', marginBottom: '8px' }}>{realm.name}</h3>
+                    <p className="realm-desc" style={{ color: 'var(--muted)', fontSize: '0.95rem', lineHeight: '1.5', marginBottom: '16px' }}>{realm.description}</p>
+                  </div>
+                  <div className="realm-footer" style={{ marginTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className="quick-actions" style={{ display: 'flex', gap: '8px' }}>
+                      <button className="quick-action-btn" style={{ padding: '6px 12px', fontSize: '0.75rem', background: 'rgba(var(--accent-rgb), 0.1)', color: 'var(--accent)', border: '1px solid rgba(var(--accent-rgb), 0.2)', borderRadius: '8px', cursor: 'pointer', transition: 'all 0.2s ease' }} onMouseEnter={e => e.target.style.background = 'rgba(var(--accent-rgb), 0.2)'} onMouseLeave={e => e.target.style.background = 'rgba(var(--accent-rgb), 0.1)'}>
+                        Quick Start
+                      </button>
+                      <button className="quick-action-btn" style={{ padding: '6px 12px', fontSize: '0.75rem', background: 'transparent', color: 'var(--muted)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', cursor: 'pointer', transition: 'all 0.2s ease' }} onMouseEnter={e => e.target.style.borderColor = 'rgba(var(--accent-rgb), 0.3)'} onMouseLeave={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}>
+                        Stats
+                      </button>
+                    </div>
+                    <span className="launch-indicator" style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--accent)', opacity: 0.8, transition: 'opacity 0.2s ease' }} onMouseEnter={e => e.target.style.opacity = '1'} onMouseLeave={e => e.target.style.opacity = '0.8'}>Launch →</span>
+                  </div>
+ </NavLink>
+                )
+              })}
+            </section>
         </div>
       ) : (
         <div className="nexus-loading" style={{ height: '400px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}>

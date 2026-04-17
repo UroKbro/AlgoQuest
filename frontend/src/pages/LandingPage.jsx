@@ -349,6 +349,23 @@ export default function LandingPage() {
                   </p>
                 </div>
               </div>
+
+              <div className="landing-showcase-telemetry glass-panel" style={{ marginTop: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', background: 'linear-gradient(90deg, rgba(0,242,255,0.05), transparent)', borderRadius: '12px', border: '1px solid rgba(0,242,255,0.15)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--cyan)', boxShadow: '0 0 10px var(--cyan)', animation: 'pulse 2s infinite' }} />
+                  <span style={{ fontSize: '0.85rem', color: 'var(--cyan)', fontWeight: '600' }}>Algorithm OS Online</span>
+                </div>
+                <div style={{ display: 'flex', gap: '24px', fontFamily: 'SFMono-Regular, Consolas, monospace' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
+                    <span style={{ color: 'var(--muted)', fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Server Status</span>
+                    <strong style={{ color: '#fff', fontSize: '0.9rem' }}>Nominal</strong>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
+                    <span style={{ color: 'var(--muted)', fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Render Latency</span>
+                    <strong style={{ color: '#fff', fontSize: '0.9rem' }}>{'< 16ms'}</strong>
+                  </div>
+                </div>
+              </div>
             </div>
           </motion.div>
         </section>
