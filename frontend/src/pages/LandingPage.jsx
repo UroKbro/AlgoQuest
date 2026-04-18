@@ -5,6 +5,7 @@ import {
   ArrowRight,
   Bot,
   BrainCircuit,
+  ChevronRight,
   ChartNoAxesColumn,
   Compass,
   GitBranch,
@@ -177,9 +178,22 @@ const heroStats = [
   { label: 'AI role', value: 'coach, not autopilot' },
 ]
 
+const heroCommandDeck = [
+  { label: 'Open Dojo', hint: 'guided lesson flow' },
+  { label: 'Inspect in Lab', hint: 'state-by-state playback' },
+  { label: 'Generate blueprint', hint: 'AI-assisted project start' },
+]
+
+const launchDestinations = [
+  { name: 'Nexus', path: '/auth?mode=signup', signal: 'continuity + next action' },
+  { name: 'Sandbox', path: '/auth?mode=signup', signal: 'live systems playground' },
+  { name: 'Forge', path: '/auth?mode=signup', signal: 'creative output archive' },
+]
+
 export default function LandingPage() {
   const [activeMode, setActiveMode] = useState(interactiveModes[0])
   const [activeBubbleStep, setActiveBubbleStep] = useState(0)
+  const [activeCommand, setActiveCommand] = useState(heroCommandDeck[0])
   const currentBubbleFrame = bubbleSortFrames[activeBubbleStep]
 
   return (
@@ -240,6 +254,28 @@ export default function LandingPage() {
                 <Play size={16} />
                 Continue learning
               </Link>
+            </div>
+
+            <div className="landing-command-deck">
+              {heroCommandDeck.map((command) => (
+                <button
+                  key={command.label}
+                  type="button"
+                  className={`landing-command-button${activeCommand.label === command.label ? ' is-active' : ''}`}
+                  onClick={() => setActiveCommand(command)}
+                >
+                  <strong>{command.label}</strong>
+                  <span>{command.hint}</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="landing-active-command glass-panel">
+              <div>
+                <small>Current interactive path</small>
+                <strong>{activeCommand.label}</strong>
+              </div>
+              <span>{activeCommand.hint}</span>
             </div>
 
             <div className="landing-stat-row">
@@ -366,6 +402,27 @@ export default function LandingPage() {
                   </div>
                 </div>
               </div>
+
+              <div className="landing-orbit-panel">
+                <div className="landing-orbit-ring landing-orbit-ring-outer" />
+                <div className="landing-orbit-ring landing-orbit-ring-inner" />
+                <div className="landing-core-node">
+                  <span>Algorithm OS</span>
+                  <strong>Every realm stays in the same learning loop.</strong>
+                </div>
+                <div className="landing-floating-card landing-floating-card-cyan">
+                  <small>Lesson State</small>
+                  <strong>guided progress</strong>
+                </div>
+                <div className="landing-floating-card landing-floating-card-purple">
+                  <small>Visual Reasoning</small>
+                  <strong>inspectable logic</strong>
+                </div>
+                <div className="landing-floating-card landing-floating-card-emerald">
+                  <small>Build Output</small>
+                  <strong>project-ready flow</strong>
+                </div>
+              </div>
             </div>
           </motion.div>
         </section>
@@ -455,6 +512,18 @@ export default function LandingPage() {
                 <strong>{realm.name}</strong>
                 <p>{realm.copy}</p>
               </motion.article>
+            ))}
+          </div>
+
+          <div className="landing-launch-row">
+            {launchDestinations.map((destination) => (
+              <Link key={destination.name} to={destination.path} className="landing-launch-link glass-panel">
+                <div>
+                  <small>{destination.signal}</small>
+                  <strong>{destination.name}</strong>
+                </div>
+                <ChevronRight size={18} />
+              </Link>
             ))}
           </div>
         </section>

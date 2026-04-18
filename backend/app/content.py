@@ -186,6 +186,12 @@ ALGORITHMS = [
         "summary": "Grow a sorted prefix by inserting each new value into place.",
     },
     {
+        "slug": "selection-sort",
+        "name": "Selection Sort",
+        "family": "Sorting",
+        "summary": "Scan the tail for the minimum value and lock it into the next slot.",
+    },
+    {
         "slug": "merge-sort",
         "name": "Merge Sort",
         "family": "Sorting",
@@ -202,6 +208,12 @@ ALGORITHMS = [
         "name": "Dijkstra",
         "family": "Graphs",
         "summary": "Explore shortest paths with frontier relaxation.",
+    },
+    {
+        "slug": "breadth-first-search",
+        "name": "Breadth-First Search",
+        "family": "Graphs",
+        "summary": "Traverse the graph layer by layer using a queue frontier.",
     },
 ]
 

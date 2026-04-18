@@ -98,12 +98,14 @@ export default function NexusPage() {
       animate={{ opacity: 1, y: 0 }}
       className="nexus-wrapper"
     >
-      <PageHeader
-        eyebrow="Central Hub"
-        title="Nexus"
-        description="Quest continuity, weekly pulse, and a diagnostics-led readout of your logic progression."
-        accent="cyan"
-      />
+      <div className="nexus-page-header">
+        <PageHeader
+          eyebrow="Central Hub"
+          title="Nexus"
+          description="Quest continuity, weekly pulse, and a diagnostics-led readout of your logic progression."
+          accent="cyan"
+        />
+      </div>
 
       {state.status === 'error' ? (
         <div
@@ -119,10 +121,10 @@ export default function NexusPage() {
           Unable to load your Nexus stats: {state.message}
         </div>
       ) : state.status === 'ready' ? (
-        <div className="nexus-layout-stack" style={{ display: 'grid', gap: '24px' }}>
+        <div className="nexus-layout-stack nexus-flat-layout" style={{ display: 'grid', gap: '24px' }}>
           <section className="nexus-top-grid">
             {/* Quest Continuity Hero */}
-            <article className="glass-panel continuity-card high-impact-card accent-amber">
+            <article className="nexus-section continuity-card nexus-flat-section accent-amber">
               <div className="panel-heading">
                 <div>
                   <p className="card-tag text-amber">Quest Continuity</p>
@@ -132,14 +134,14 @@ export default function NexusPage() {
               </div>
               <p className="status-copy">{state.continuity?.summary}</p>
 
-              <div className="continuity-visual" aria-hidden="true" style={{ display: 'grid', gridTemplateColumns: '1fr 60px 1fr', alignItems: 'center', gap: '16px', margin: '24px 0' }}>
-                <div className="memory-box" style={{ padding: '16px', borderRadius: '16px', border: '1px solid rgba(245, 158, 11, 0.2)', background: 'rgba(245, 158, 11, 0.05)' }}>
+              <div className="continuity-visual nexus-inline-metrics" aria-hidden="true" style={{ display: 'grid', gridTemplateColumns: '1fr 60px 1fr', alignItems: 'center', gap: '16px', margin: '24px 0' }}>
+                <div className="memory-box nexus-inline-metric" style={{ padding: '16px' }}>
                   <small style={{ display: 'block', color: 'var(--muted)', fontSize: '0.7rem', textTransform: 'uppercase' }}>{state.continuity?.visual?.primaryLabel}</small>
                   <strong style={{ fontSize: '1.2rem' }}>{state.continuity?.visual?.primaryValue}</strong>
                 </div>
                 <div className="pointer-line" style={{ height: '2px', background: 'linear-gradient(90deg, transparent, var(--amber), transparent)' }}>
                 </div>
-                <div className="memory-box ghost-box" style={{ padding: '16px', borderRadius: '16px', border: '1px solid rgba(255, 255, 255, 0.1)', background: 'rgba(255, 255, 255, 0.05)' }}>
+                <div className="memory-box ghost-box nexus-inline-metric" style={{ padding: '16px' }}>
                   <small style={{ display: 'block', color: 'var(--muted)', fontSize: '0.7rem', textTransform: 'uppercase' }}>{state.continuity?.visual?.secondaryLabel}</small>
                   <strong style={{ fontSize: '1.2rem' }}>{state.continuity?.visual?.secondaryValue}</strong>
                 </div>
@@ -151,7 +153,7 @@ export default function NexusPage() {
             </article>
 
             {/* Mastery Pulse Chart */}
-            <NavLink to="/path" className="glass-panel pulse-card high-impact-card accent-cyan">
+            <NavLink to="/path" className="pulse-card nexus-section nexus-flat-section accent-cyan nexus-flat-link">
               <div className="panel-heading">
                 <div>
                   <p className="card-tag text-cyan">Mastery Pulse</p>
@@ -226,7 +228,7 @@ export default function NexusPage() {
            <section className="stats-dashboard" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginTop: '8px', marginBottom: '16px' }}>
              {computedStats && (
                <>
-                  <div className="glass-panel stat-card" style={{ padding: '20px', borderRadius: '16px', position: 'relative' }}>
+                   <div className="stat-card nexus-stat-card" style={{ padding: '20px', position: 'relative' }}>
                     <div className="stat-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                       <span className="stat-label" style={{ fontSize: '0.8rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Focus</span>
                     </div>
@@ -238,7 +240,7 @@ export default function NexusPage() {
                    </div>
                   </div>
 
-                  <div className="glass-panel stat-card" style={{ padding: '20px', borderRadius: '16px', position: 'relative' }}>
+                   <div className="stat-card nexus-stat-card" style={{ padding: '20px', position: 'relative' }}>
                     <div className="stat-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                       <span className="stat-label" style={{ fontSize: '0.8rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Problems Solved</span>
                     </div>
@@ -250,7 +252,7 @@ export default function NexusPage() {
                    </div>
                   </div>
 
-                  <div className="glass-panel stat-card" style={{ padding: '20px', borderRadius: '16px', position: 'relative' }}>
+                   <div className="stat-card nexus-stat-card" style={{ padding: '20px', position: 'relative' }}>
                     <div className="stat-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                       <span className="stat-label" style={{ fontSize: '0.8rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Efficiency</span>
                     </div>
@@ -263,7 +265,7 @@ export default function NexusPage() {
                    <CircularProgress value={computedStats.avgEfficiency} color="var(--emerald)" size={60} style={{ position: 'absolute', right: '16px', top: '20px', opacity: 0.7 }} />
                  </div>
 
-                  <div className="glass-panel stat-card" style={{ padding: '20px', borderRadius: '16px', position: 'relative' }}>
+                   <div className="stat-card nexus-stat-card" style={{ padding: '20px', position: 'relative' }}>
                     <div className="stat-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                       <span className="stat-label" style={{ fontSize: '0.8rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Active Streak</span>
                     </div>
@@ -293,7 +295,7 @@ export default function NexusPage() {
            </section>
 
            <section className="nexus-summary-grid content-grid">
-            <article className="glass-panel content-card high-impact-card accent-purple">
+             <article className="content-card nexus-section nexus-flat-section accent-purple">
                <div className="panel-heading">
                 <div>
                   <p className="card-tag text-purple">Weekly Focus</p>
@@ -307,7 +309,7 @@ export default function NexusPage() {
               </NavLink>
             </article>
 
-            <article className="glass-panel content-card high-impact-card accent-emerald">
+             <article className="content-card nexus-section nexus-flat-section accent-emerald">
               <div className="panel-heading">
                 <div>
                   <p className="card-tag text-emerald">Logic Analytics</p>
@@ -319,11 +321,9 @@ export default function NexusPage() {
               <div style={{ marginTop: '16px' }}>
                 <div className="heatmap-container" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '20px' }}>
                   {state.analytics?.masteryRadar && Object.entries(state.analytics.masteryRadar).map(([skill, score]) => (
-                    <div key={skill} className="skill-cell" style={{ 
+                    <div key={skill} className="skill-cell nexus-skill-cell" style={{ 
                       padding: '12px',
-                      borderRadius: '12px',
                       background: `rgba(var(--emerald-rgb), ${score / 200})`,
-                      border: `1px solid rgba(var(--emerald-rgb), ${score / 150})`,
                       position: 'relative',
                       overflow: 'hidden'
                     }}>
@@ -373,7 +373,7 @@ export default function NexusPage() {
                 </div>
                 
                 {state.analytics?.weeklyGate && (
-                  <div className="weekly-gate-summary" style={{ marginTop: '16px', padding: '12px', background: 'rgba(var(--cyan-rgb), 0.05)', borderRadius: '12px', border: '1px solid rgba(var(--cyan-rgb), 0.1)' }}>
+                  <div className="weekly-gate-summary nexus-inline-summary" style={{ marginTop: '16px', padding: '12px', background: 'rgba(var(--cyan-rgb), 0.05)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                       <span style={{ fontSize: '0.8rem', color: 'var(--cyan)', fontWeight: '600' }}>Weekly Gate</span>
                       <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Score: <strong style={{ color: 'var(--cyan)' }}>{state.analytics.weeklyGate.score}/100</strong></span>
@@ -395,11 +395,11 @@ export default function NexusPage() {
               {realmCards.map((realm) => {
                 return (
                <NavLink
-                 key={realm.slug}
-                 to={`/${realm.slug}`}
-                 className={`realm-card glass-panel high-impact-card accent-${realm.accent}`}
-                 style={{ textDecoration: 'none', color: 'inherit' }}
-               >
+                  key={realm.slug}
+                  to={`/${realm.slug}`}
+                  className={`realm-card nexus-realm-link accent-${realm.accent}`}
+                  style={{ textDecoration: 'none', color: 'inherit' }}
+                >
 <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
                       <span className="card-tag">{realm.eyebrow}</span>

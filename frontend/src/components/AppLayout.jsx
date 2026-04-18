@@ -34,15 +34,16 @@ export default function AppLayout({ appState, onLogout }) {
     <div className="app-frame">
       <AnimatePresence>
         {isMenuOpen ? (
-          <motion.button
-            type="button"
-            aria-label="Close navigation menu"
-            className="nav-overlay"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setIsMenuOpen(false)}
-          />
+            <motion.button
+              type="button"
+              aria-label="Close navigation menu"
+              className="nav-overlay"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.24, ease: 'easeOut' }}
+              onClick={() => setIsMenuOpen(false)}
+            />
         ) : null}
       </AnimatePresence>
 
@@ -122,7 +123,7 @@ export default function AppLayout({ appState, onLogout }) {
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.18 }}
+              transition={{ duration: 0.24, ease: 'easeOut' }}
               className="glass-panel topbar-quick-panel"
             >
               {activePanel === 'account' ? (
@@ -201,7 +202,8 @@ export default function AppLayout({ appState, onLogout }) {
                 key={notif.id}
                 initial={{ opacity: 0, y: 50, scale: 0.96 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.96 }}
+                exit={{ opacity: 0, y: 12, scale: 0.98 }}
+                transition={{ duration: 0.24, ease: 'easeOut' }}
                 className={`notification-toast is-${notif.type}`}
               >
                 <strong>{notif.title}</strong>
@@ -214,10 +216,10 @@ export default function AppLayout({ appState, onLogout }) {
         <AnimatePresence mode="wait">
           <motion.div
             key={location.pathname}
-            initial={{ opacity: 0, y: 14 }}
+            initial={{ opacity: 0, y: 10, scale: 0.995 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.24, ease: 'easeOut' }}
+            exit={{ opacity: 0, y: -8, scale: 0.995 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
             className="page-content-wrapper"
           >
             <Outlet />

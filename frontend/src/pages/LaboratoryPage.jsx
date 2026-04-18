@@ -310,6 +310,120 @@ const algorithmVisualizers = {
       return snapshots
     },
   },
+  'selection-sort': {
+    title: 'Selection Sort',
+    mode: 'bars',
+    codeLines: [
+      'def selection_sort(values):',
+      '    for i in range(len(values)):',
+      '        min_index = i',
+      '        for j in range(i + 1, len(values)):',
+      '            if values[j] < values[min_index]:',
+      '                min_index = j',
+      '        values[i], values[min_index] = values[min_index], values[i]',
+    ],
+    complexity: { time: 'O(N^2)', space: 'O(1)' },
+    getStructureState(snapshot) {
+      return {
+        'Locked Prefix': snapshot.sortedCount ?? 0,
+        'Current Minimum': snapshot.minValue ?? 'none',
+        'Scan Window': snapshot.activeRange ? `${snapshot.activeRange[0]}–${snapshot.activeRange[1]}` : 'none',
+      }
+    },
+    buildSnapshots() {
+      const values = [64, 25, 12, 22, 11, 45]
+      const snapshots = [
+        {
+          line: 1,
+          message: 'Selection sort starts by treating the entire array as unsorted.',
+          anchorLabel: 'Start',
+          values: [...values],
+          activeRange: [0, values.length - 1],
+          comparing: null,
+          mergedIndices: [],
+          sortedCount: 0,
+          minValue: null,
+          mid: null,
+        },
+      ]
+
+      for (let i = 0; i < values.length; i += 1) {
+        let minIndex = i
+
+        snapshots.push({
+          line: 3,
+          message: `Assume index ${i} is the minimum, then scan the remaining tail.`,
+          anchorLabel: `slot ${i}`,
+          values: [...values],
+          activeRange: [i, values.length - 1],
+          comparing: [i],
+          mergedIndices: Array.from({ length: i }, (_, index) => index),
+          sortedCount: i,
+          minValue: values[minIndex],
+          mid: minIndex,
+        })
+
+        for (let j = i + 1; j < values.length; j += 1) {
+          snapshots.push({
+            line: 4,
+            message: `Compare candidate ${values[j]} against current minimum ${values[minIndex]}.`,
+            values: [...values],
+            activeRange: [i, values.length - 1],
+            comparing: [minIndex, j],
+            mergedIndices: Array.from({ length: i }, (_, index) => index),
+            sortedCount: i,
+            minValue: values[minIndex],
+            mid: j,
+          })
+
+          if (values[j] < values[minIndex]) {
+            minIndex = j
+            snapshots.push({
+              line: 6,
+              message: `${values[minIndex]} becomes the new minimum for slot ${i}.`,
+              anchorLabel: `min ${values[minIndex]}`,
+              values: [...values],
+              activeRange: [i, values.length - 1],
+              comparing: [i, minIndex],
+              mergedIndices: Array.from({ length: i }, (_, index) => index),
+              sortedCount: i,
+              minValue: values[minIndex],
+              mid: minIndex,
+            })
+          }
+        }
+
+        ;[values[i], values[minIndex]] = [values[minIndex], values[i]]
+        snapshots.push({
+          line: 7,
+          message: `Swap the minimum into slot ${i} and extend the locked prefix.`,
+          anchorLabel: `lock ${values[i]}`,
+          values: [...values],
+          activeRange: [i, values.length - 1],
+          comparing: [i, minIndex],
+          mergedIndices: Array.from({ length: i + 1 }, (_, index) => index),
+          sortedCount: i + 1,
+          minValue: values[i],
+          mid: i,
+        })
+      }
+
+      snapshots.push({
+        line: 7,
+        message: 'Every slot has claimed its minimum value and the array is sorted.',
+        anchorLabel: 'Done',
+        values: [...values],
+        activeRange: [0, values.length - 1],
+        comparing: null,
+        mergedIndices: Array.from({ length: values.length }, (_, index) => index),
+        sortedCount: values.length,
+        minValue: null,
+        mid: null,
+      })
+
+      return snapshots
+    },
+  },
   'merge-sort': {
     title: 'Merge Sort',
     mode: 'bars',
@@ -632,6 +746,105 @@ const algorithmVisualizers = {
         message: 'Shortest paths from A are resolved across the graph.',
         anchorLabel: 'Done',
         distances: { ...distances },
+        currentNode: null,
+        visited: [...visited],
+        frontier: [],
+        activeEdge: null,
+      })
+
+      return snapshots
+    },
+  },
+  'breadth-first-search': {
+    title: 'Breadth-First Search',
+    mode: 'graph',
+    codeLines: [
+      'queue = [start]',
+      'visited = {start}',
+      'while queue:',
+      '    node = queue.pop(0)',
+      '    for neighbor in graph[node]:',
+      '        if neighbor not in visited: queue.append(neighbor)',
+    ],
+    complexity: { time: 'O(V + E)', space: 'O(V)' },
+    getStructureState(snapshot) {
+      return {
+        'Current Node': snapshot.currentNode || 'none',
+        'Visited': `${snapshot.visited.length} / 6`,
+        'Queue': snapshot.frontier.length > 0 ? snapshot.frontier.join(' -> ') : 'empty',
+      }
+    },
+    buildSnapshots() {
+      const adjacency = {
+        A: ['B', 'D'],
+        B: ['C', 'E'],
+        C: ['F'],
+        D: ['E'],
+        E: ['C', 'F'],
+        F: [],
+      }
+      const queue = ['A']
+      const visited = new Set(['A'])
+      const snapshots = [
+        {
+          line: 1,
+          message: 'Seed the queue with the start node A.',
+          anchorLabel: 'Start',
+          distances: {},
+          currentNode: 'A',
+          visited: ['A'],
+          frontier: [...queue],
+          activeEdge: null,
+        },
+      ]
+
+      while (queue.length > 0) {
+        const currentNode = queue.shift()
+
+        snapshots.push({
+          line: 4,
+          message: `Pop ${currentNode} from the queue and expand its neighbors.`,
+          anchorLabel: `visit ${currentNode}`,
+          distances: {},
+          currentNode,
+          visited: [...visited],
+          frontier: [...queue],
+          activeEdge: null,
+        })
+
+        adjacency[currentNode].forEach((neighbor) => {
+          snapshots.push({
+            line: 5,
+            message: `Inspect edge ${currentNode} -> ${neighbor}.`,
+            distances: {},
+            currentNode,
+            visited: [...visited],
+            frontier: [...queue],
+            activeEdge: [currentNode, neighbor],
+          })
+
+          if (!visited.has(neighbor)) {
+            visited.add(neighbor)
+            queue.push(neighbor)
+            snapshots.push({
+              line: 6,
+              message: `${neighbor} is new, so add it to the queue for the next layer.`,
+              anchorLabel: `enqueue ${neighbor}`,
+              distances: {},
+              currentNode,
+              visited: [...visited],
+              frontier: [...queue],
+              activeEdge: [currentNode, neighbor],
+            })
+          }
+        })
+      }
+
+      snapshots.push({
+        line: 6,
+        message: 'The queue is empty, so breadth-first search has visited every reachable node.',
+        anchorLabel: 'Done',
+        distances: {},
         currentNode: null,
         visited: [...visited],
         frontier: [],

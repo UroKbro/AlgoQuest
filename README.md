@@ -2,6 +2,8 @@
 
 AlgoQuest is organized as a monorepo with separate frontend and backend applications.
 
+AlgoQuest is an algorithm-learning workspace with realm-based pages for guided practice, system visualizations, project building, analytics, and creative export flows.
+
 ## Structure
 
 - `frontend/`: React + Vite application
@@ -21,6 +23,24 @@ AlgoQuest is organized as a monorepo with separate frontend and backend applicat
 - shared frontend config for realm metadata and accents
 - backend router modules for health and content endpoints
 - product and implementation docs consolidated under `docs/`
+
+## Product Surface
+
+- `Nexus`: central dashboard for continuity, weekly pulse, and progression analytics
+- `Dojo`: guided logic practice and code execution flows
+- `Laboratory`: diagnostics, trace inspection, and system reasoning tools
+- `Sandbox`: live simulation workspace with dense controls and canvas-driven experimentation
+- `World`: project and blueprint building flows
+- `Forge`: poster gallery, challenge launchpad, and creative output archive
+- `Path`: progress analytics and telemetry views
+- `Terminal`: settings, persistence, backup/import, and system controls
+
+## Recent Frontend Updates
+
+- Forge now supports backend-backed poster creation, poster detail overlays, challenge filtering, and recommendation rails.
+- Sandbox was compacted into a more dashboard-like desktop workspace with a viewport-bounded stage and denser controls.
+- Topbar session controls now open real quick panels for account, alerts, and AI runtime actions.
+- Nexus is being flattened away from heavy card chrome toward a more on-page layout.
 
 ## Local Development
 
@@ -55,3 +75,19 @@ npm run dev:backend
 ```
 
 The root `package.json` exists to make multi-app development easier. The backend still uses Python-native dependency management.
+
+## Build Checks
+
+Frontend production build:
+
+```bash
+cd frontend
+npm run build
+```
+
+Backend tests:
+
+```bash
+cd backend
+pytest
+```

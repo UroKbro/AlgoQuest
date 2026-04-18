@@ -776,34 +776,34 @@ export default function DojoPage({ onNotify }) {
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         className="dojo-stats-bar"
-        style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px', marginBottom: '20px' }}
+        style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px', marginBottom: '16px' }}
       >
-        <div className="glass-panel" style={{ padding: '14px 18px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(245,158,11,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem' }}>📚</div>
+        <div className="glass-panel dojo-stat-card" style={{ padding: '10px 12px', borderRadius: '14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: 'rgba(245,158,11,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.95rem' }}>📚</div>
           <div>
             <div style={{ fontSize: '0.7rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Completed</div>
-            <div style={{ fontSize: '1.3rem', fontWeight: 'bold', color: 'var(--amber)' }}>{completedCount}/{totalLessons}</div>
+            <div style={{ fontSize: '1.05rem', fontWeight: 'bold', color: 'var(--amber)' }}>{completedCount}/{totalLessons}</div>
           </div>
         </div>
-        <div className="glass-panel" style={{ padding: '14px 18px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(0,242,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem' }}>▶</div>
+        <div className="glass-panel dojo-stat-card" style={{ padding: '10px 12px', borderRadius: '14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: 'rgba(0,242,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.95rem' }}>▶</div>
           <div>
             <div style={{ fontSize: '0.7rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Code Runs</div>
-            <div style={{ fontSize: '1.3rem', fontWeight: 'bold', color: 'var(--cyan)' }}>{executionStats.totalRuns}</div>
+            <div style={{ fontSize: '1.05rem', fontWeight: 'bold', color: 'var(--cyan)' }}>{executionStats.totalRuns}</div>
           </div>
         </div>
-        <div className="glass-panel" style={{ padding: '14px 18px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(168,85,247,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem' }}>⚡</div>
+        <div className="glass-panel dojo-stat-card" style={{ padding: '10px 12px', borderRadius: '14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: 'rgba(168,85,247,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.95rem' }}>⚡</div>
           <div>
             <div style={{ fontSize: '0.7rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Last Run</div>
-            <div style={{ fontSize: '1.3rem', fontWeight: 'bold', color: 'var(--purple)' }}>{executionStats.lastExecutionTime}ms</div>
+            <div style={{ fontSize: '1.05rem', fontWeight: 'bold', color: 'var(--purple)' }}>{executionStats.lastExecutionTime}ms</div>
           </div>
         </div>
-        <div className="glass-panel" style={{ padding: '14px 18px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(16,185,129,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem' }}>🎯</div>
+        <div className="glass-panel dojo-stat-card" style={{ padding: '10px 12px', borderRadius: '14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: 'rgba(16,185,129,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.95rem' }}>🎯</div>
           <div>
             <div style={{ fontSize: '0.7rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Progress</div>
-            <div style={{ fontSize: '1.3rem', fontWeight: 'bold', color: 'var(--emerald)' }}>{progressPercent}%</div>
+            <div style={{ fontSize: '1.05rem', fontWeight: 'bold', color: 'var(--emerald)' }}>{progressPercent}%</div>
           </div>
         </div>
       </motion.section>
